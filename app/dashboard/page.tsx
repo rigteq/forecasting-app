@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { LogOut, FileSpreadsheet, Download, AlertCircle } from "lucide-react";
+import { FileSpreadsheet, Download, AlertCircle } from "lucide-react";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("Forecasting");
@@ -22,22 +21,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f5f8fa] font-sans text-gray-800 flex flex-col">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-[#1c5ba9] to-[#2b75d6] text-white shadow-md">
-        <div className="flex justify-between items-center px-6 py-4">
-          <h1 className="text-xl font-bold tracking-wide uppercase shadow-sm">
-            Vardhan Enterprises
-          </h1>
-          <Link href="/">
-            <button className="flex items-center gap-2 px-4 py-2 border border-white/30 hover:border-white/60 bg-white/10 hover:bg-white/20 rounded text-sm font-medium transition-colors shadow-sm">
-              <span>Logout</span>
-              <LogOut size={16} />
-            </button>
-          </Link>
-        </div>
-      </header>
-
+    <div className="flex flex-col flex-grow">
       {/* Main Content Area */}
       <main className="flex-grow p-6 w-full max-w-[1400px] mx-auto flex flex-col gap-6">
         
