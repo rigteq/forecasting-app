@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
-import { FileSpreadsheet, Download, AlertCircle } from "lucide-react";
+import { FileSpreadsheet, Download, AlertCircle, LogOut } from "lucide-react";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -16,9 +16,8 @@ export default function Dashboard() {
   }, [router]);
 
   const handleLogout = async () => {
-
     const refreshToken = localStorage.getItem("refreshToken");
-
+    const accessToken = localStorage.getItem("accessToken");
 
     if (!refreshToken) {
       localStorage.clear();
@@ -31,10 +30,10 @@ export default function Dashboard() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`, //  IMPORTANT
         },
         body: JSON.stringify({ refreshToken }),
       });
-
     } catch (error) {
       console.error("Logout failed", error);
     } finally {
