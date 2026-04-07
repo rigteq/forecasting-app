@@ -1,9 +1,48 @@
 "use client";
-
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { FileSpreadsheet, Download, AlertCircle } from "lucide-react";
 
 export default function Dashboard() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+
+    if (!token) {
+      router.replace("/");
+    }
+  }, [router]);
+
+  const handleLogout = async () => {
+
+    const refreshToken = localStorage.getItem("refreshToken");
+
+
+    if (!refreshToken) {
+      localStorage.clear();
+      router.replace("/");
+      return;
+    }
+
+    try {
+      await fetch("http://localhost:8080/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+    } catch (error) {
+      console.error("Logout failed", error);
+    } finally {
+      localStorage.clear();
+      router.replace("/");
+    }
+  };
+
   const [activeTab, setActiveTab] = useState("Forecasting");
   const [forecastDays, setForecastDays] = useState("15");
   const [transitTime, setTransitTime] = useState("5");
@@ -21,21 +60,38 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="flex flex-col flex-grow">
+    <div className="min-h-screen bg-[#f5f8fa] font-sans text-gray-800 flex flex-col">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-[#1c5ba9] to-[#2b75d6] text-white shadow-md">
+        <div className="flex justify-between items-center px-6 py-4">
+          <h1 className="text-xl font-bold tracking-wide uppercase shadow-sm">
+            Vardhan Enterprises
+          </h1>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 border border-white/30 hover:border-white/60 bg-white/10 hover:bg-white/20 rounded text-sm font-medium transition-colors shadow-sm"
+          >
+            <span>Logout</span>
+            <LogOut size={16} />
+          </button>
+
+        </div>
+      </header>
+
       {/* Main Content Area */}
       <main className="flex-grow p-6 w-full max-w-[1400px] mx-auto flex flex-col gap-6">
-        
+
         {/* Tabs container */}
         <div className="flex flex-wrap gap-1 border-b border-gray-300 pb-[1px]">
           {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-3 text-sm font-semibold transition-all duration-200 border-t border-l border-r rounded-t-lg shadow-sm ${
-                activeTab === tab
-                  ? "bg-[#1c5ba9] text-white border-[#1c5ba9] translate-y-[1px]"
-                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-              }`}
+              className={`px-5 py-3 text-sm font-semibold transition-all duration-200 border-t border-l border-r rounded-t-lg shadow-sm ${activeTab === tab
+                ? "bg-[#1c5ba9] text-white border-[#1c5ba9] translate-y-[1px]"
+                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                }`}
             >
               {tab}
             </button>
@@ -46,7 +102,7 @@ export default function Dashboard() {
 
         {/* Tab Content Wrapper */}
         <div className="flex flex-col gap-6">
-          
+
           {/* Warning Message Box */}
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex flex-col gap-4">
             <div className="bg-red-50 text-red-700 px-4 py-3 rounded border-l-4 border-red-500 font-medium text-sm flex items-center gap-3">

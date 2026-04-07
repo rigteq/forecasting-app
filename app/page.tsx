@@ -1,16 +1,63 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
+import { useEffect } from "react";
 
 export default function Login() {
+  const router = useRouter();
+
+  const [username, setUserId] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+
+    if (token) {
+      router.replace("/dashboard");
+    }
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      const res = await fetch("http://localhost:8080/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.message);
+        return;
+      }
+
+      const data = await res.json();
+
+      localStorage.setItem("accessToken", data.accessToken);
+      localStorage.setItem("refreshToken", data.refreshToken);
+
+      router.replace("/dashboard");
+
+    } catch (err) {
+      setError("Server error. Please try again.");
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-white font-sans text-gray-900">
-      {/* Main Content Area */}
       <main className="flex-grow flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-md bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] p-10 border border-gray-100 flex flex-col items-center">
-          
-          {/* Logo */}
+
           <div className="mb-8">
-             <Image
+            <Image
               src="/velogo.png"
               alt="Vardhan Enterprises Logo"
               width={200}
@@ -20,58 +67,54 @@ export default function Login() {
             />
           </div>
 
-          <h1 className="text-2xl font-bold mb-8 text-gray-800 tracking-tight">Sign In</h1>
+          <h1 className="text-2xl font-bold mb-8 text-gray-800 tracking-tight">
+            Sign In
+          </h1>
 
-          {/* Form */}
-          <form className="w-full flex flex-col gap-5">
+          <form onSubmit={handleLogin} className="w-full flex flex-col gap-5">
+
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="userId" className="text-sm font-semibold text-gray-700">
+              <label className="text-sm font-semibold text-gray-700">
                 User ID
               </label>
               <input
-                id="userId"
                 type="text"
-                placeholder="Enter User ID"
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white text-base outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
+                value={username}
+                onChange={(e) => setUserId(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50"
                 required
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="password" className="text-sm font-semibold text-gray-700">
+              <label className="text-sm font-semibold text-gray-700">
                 Password
               </label>
               <input
-                id="password"
                 type="password"
-                placeholder="Enter Password"
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white text-base outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50"
                 required
               />
+
+              {error && (
+                <div className="text-red-500 text-sm font-medium mt-1">
+                  {error}
+                </div>
+              )}
             </div>
 
-            <div className="mt-4">
-              <Link href="/dashboard" className="block w-full">
-                <button
-                  type="button"
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex justify-center items-center"
-                >
-                  Login
-                </button>
-              </Link>
-            </div>
+            <button
+              type="submit"
+              className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-lg"
+            >
+              Login
+            </button>
+
           </form>
-
         </div>
       </main>
-
-      {/* Sticky Footer */}
-      <footer className="sticky bottom-0 w-full bg-black text-white py-4 px-6 md:px-12 flex justify-between items-center text-sm font-medium z-10 shadow-[0_-4px_15px_rgba(0,0,0,0.1)]">
-        <div>Vardhan Enterprises</div>
-        <div>
-          Powered by <span className="font-bold tracking-wide">rigteq</span>
-        </div>
-      </footer>
     </div>
   );
 }
