@@ -15,32 +15,32 @@ export default function Dashboard() {
     }
   }, [router]);
 
-  const handleLogout = async () => {
-    const refreshToken = localStorage.getItem("refreshToken");
-    const accessToken = localStorage.getItem("accessToken");
+  // const handleLogout = async () => {
+  //   const refreshToken = localStorage.getItem("refreshToken");
+  //   const accessToken = localStorage.getItem("accessToken");
 
-    if (!refreshToken) {
-      localStorage.clear();
-      router.replace("/");
-      return;
-    }
+  //   if (!refreshToken) {
+  //     localStorage.clear();
+  //     router.replace("/");
+  //     return;
+  //   }
 
-    try {
-      await fetch("http://localhost:8080/api/auth/logout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`, //  IMPORTANT
-        },
-        body: JSON.stringify({ refreshToken }),
-      });
-    } catch (error) {
-      console.error("Logout failed", error);
-    } finally {
-      localStorage.clear();
-      router.replace("/");
-    }
-  };
+  //   try {
+  //     await fetch("http://localhost:8080/api/auth/logout", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         "Authorization": `Bearer ${accessToken}`, //  IMPORTANT
+  //       },
+  //       body: JSON.stringify({ refreshToken }),
+  //     });
+  //   } catch (error) {
+  //     console.error("Logout failed", error);
+  //   } finally {
+  //     localStorage.clear();
+  //     router.replace("/");
+  //   }
+  // };
 
   const [activeTab, setActiveTab] = useState("Forecasting");
   const [forecastDays, setForecastDays] = useState("15");
@@ -61,23 +61,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#f5f8fa] font-sans text-gray-800 flex flex-col">
       {/* Header */}
-      <header className="bg-gradient-to-r from-[#1c5ba9] to-[#2b75d6] text-white shadow-md">
-        <div className="flex justify-between items-center px-6 py-4">
-          <h1 className="text-xl font-bold tracking-wide uppercase shadow-sm">
-            Vardhan Enterprises
-          </h1>
-
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 border border-white/30 hover:border-white/60 bg-white/10 hover:bg-white/20 rounded text-sm font-medium transition-colors shadow-sm"
-          >
-            <span>Logout</span>
-            <LogOut size={16} />
-          </button>
-
-        </div>
-      </header>
-
       {/* Main Content Area */}
       <main className="flex-grow p-6 w-full max-w-[1400px] mx-auto flex flex-col gap-6">
 
