@@ -3,9 +3,14 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { FileSpreadsheet, Download, AlertCircle, LogOut } from "lucide-react";
+import { CheckCircle } from "lucide-react";
+
 
 export default function Dashboard() {
   const router = useRouter();
+  const [uploadedFileIds, setUploadedFileIds] = useState<Record<string, string>>({});
+  const [forecastData, setForecastData] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -15,32 +20,6 @@ export default function Dashboard() {
     }
   }, [router]);
 
-  // const handleLogout = async () => {
-  //   const refreshToken = localStorage.getItem("refreshToken");
-  //   const accessToken = localStorage.getItem("accessToken");
-
-  //   if (!refreshToken) {
-  //     localStorage.clear();
-  //     router.replace("/");
-  //     return;
-  //   }
-
-  //   try {
-  //     await fetch("http://localhost:8080/api/auth/logout", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         "Authorization": `Bearer ${accessToken}`, //  IMPORTANT
-  //       },
-  //       body: JSON.stringify({ refreshToken }),
-  //     });
-  //   } catch (error) {
-  //     console.error("Logout failed", error);
-  //   } finally {
-  //     localStorage.clear();
-  //     router.replace("/");
-  //   }
-  // };
 
   const [activeTab, setActiveTab] = useState("Forecasting");
   const [forecastDays, setForecastDays] = useState("15");
@@ -49,6 +28,17 @@ export default function Dashboard() {
   const [stockType, setStockType] = useState("Below Safety Stock");
   const [tabData, setTabData] = useState<Record<string, File | null>>({});
   const [showResults, setShowResults] = useState(false);
+
+  const [uploadMessage, setUploadMessage] = useState("");
+
+  const fileTypeMap: Record<string, string> = {
+    "Part Price List": "part-price",
+    "No Forecast": "no-forecast",
+    "Current Stock": "current-stock",
+    "Transit": "transit",
+    "Back Order": "backorder",
+    "Quarter Consumption": "consumption",
+  };
 
   const tabs = [
     "Part Price List",
@@ -60,15 +50,173 @@ export default function Dashboard() {
     "Forecasting",
   ];
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
 
-    if (file) {
-      setTabData((prev) => ({
-        ...prev,
-        [activeTab]: file,
-      }));
+    if (!file) return;
+
+    const token = localStorage.getItem("accessToken");
+
+    if (!token) {
+      router.replace("/");
+      return;
     }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setTabData((prev) => ({
+      ...prev,
+      [activeTab]: file,
+    }));
+
+    setIsUploading(true);
+    setUploadMessage("");
+    try {
+      const fileType = fileTypeMap[activeTab];
+
+
+      const res = await fetch(
+        `http://localhost:8080/api/file/upload/${fileType}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+
+      setIsUploading(false);
+
+      if (!res.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await res.json();
+      setUploadedFileIds(prev => ({
+        ...prev,
+        [activeTab]: data.data.uploadJobId
+      }));
+      setUploadMessage(data.message);
+
+    } catch (error) {
+      setUploadMessage("Wrong file uploaded ");
+      setIsUploading(false);
+    }
+  };
+
+  const handleForecast = async () => {
+    const requiredTabs = [
+      "Part Price List",
+      "No Forecast",
+      "Current Stock",
+      "Transit",
+      "Back Order",
+      "Quarter Consumption",
+    ];
+
+    const allUploaded = requiredTabs.every(tab => uploadedFileIds[tab]);
+
+    if (!allUploaded) {
+      alert("Please upload all 6 files first");
+      return;
+    }
+
+    const token = localStorage.getItem("accessToken");
+
+    try {
+      const anyFileId = Object.values(uploadedFileIds)[0];
+
+      const res = await fetch(
+        `http://localhost:8080/api/forecast/run/${anyFileId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            forecastDays,
+            transitTime,
+            orderFor,
+            stockType,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Forecast failed");
+      }
+
+
+      const data = await res.json();
+      console.log("Forecast Data:", data);
+
+      setForecastData(data || []);
+      setShowResults(true);
+
+    } catch (error) {
+      console.error("Forecast error:", error);
+    }
+  };
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      const token = localStorage.getItem("accessToken");
+
+      if (!token) {
+        router.replace("/");
+        return;
+      }
+
+      try {
+        const res = await fetch("http://localhost:8080/api/dashboard", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          localStorage.clear();
+          router.replace("/");
+          return;
+        }
+
+        const data = await res.text();
+        console.log("Dashboard API Response:", data);
+
+      } catch (error) {
+        console.error("Error:", error);
+      }
+    };
+
+    fetchDashboard();
+  }, [router]);
+
+  const handleDownload = async (type: string) => {
+    const anyFileId = Object.values(uploadedFileIds)[0];
+    if (!anyFileId) return;
+
+    const token = localStorage.getItem("accessToken");
+
+    const res = await fetch(
+      `http://localhost:8080/api/forecast/download/${anyFileId}?type=${type}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `forecast.${type === "excel" ? "xlsx" : type}`;
+    a.click();
   };
 
   return (
@@ -85,7 +233,8 @@ export default function Dashboard() {
                 key={tab}
                 onClick={() => {
                   setActiveTab(tab);
-                  setShowResults(false); // reset when switching tab
+                  setShowResults(false);
+                  setUploadMessage("");
                 }}
                 className={`text-center px-2 py-3 text-sm font-semibold transition-all duration-200 border-t border-l border-r ${activeTab === tab
                   ? "bg-[#1c5ba9] text-white border-[#1c5ba9] -mb-[1px]"
@@ -109,12 +258,14 @@ export default function Dashboard() {
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 flex flex-col gap-5">
 
               {/* Warning */}
-              <div className="bg-red-50 text-red-700 px-4 py-3 rounded border-l-4 border-red-500 font-medium text-sm flex items-center gap-3">
-                <AlertCircle size={18} className="text-red-500 shrink-0" />
-                <span>
-                  Error: Missing data in required tabs. Please upload all files before analysis!
-                </span>
-              </div>
+              {!uploadedFileIds[activeTab] && (
+                <div className="bg-red-50 text-red-700 px-4 py-3 rounded border-l-4 border-red-500 font-medium text-sm flex items-center gap-3">
+                  <AlertCircle size={18} className="text-red-500 shrink-0" />
+                  <span>
+                    Please upload file for this tab before proceeding!
+                  </span>
+                </div>
+              )}
 
               {/* Upload Box (like image) */}
               <div className="border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-center py-10 px-4 bg-gray-50 hover:bg-gray-100 transition-all">
@@ -124,10 +275,11 @@ export default function Dashboard() {
                 </p>
 
                 <p className="text-xs text-gray-400 mb-4">
-                  Files Supported: PDF, TEXT, DOC, DOCX
+                  Files Supported: Excel, CSV
                 </p>
 
                 <label className="cursor-pointer px-5 py-2 bg-[#1c5ba9] text-white rounded shadow hover:bg-[#154682] transition text-sm font-medium">
+
                   Choose File
                   <input
                     type="file"
@@ -136,10 +288,23 @@ export default function Dashboard() {
                   />
                 </label>
 
+                {isUploading && (
+                  <div className="mt-3 flex items-center gap-2 text-blue-600 text-sm font-medium">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    Uploading...
+                  </div>
+                )}
+
                 {tabData[activeTab] && (
                   <p className="text-sm text-green-600 mt-3">
                     Selected: {tabData[activeTab].name}
                   </p>
+                )}
+                {uploadMessage && !isUploading && (
+                  <div className="flex items-center gap-2 mt-2 text-green-600 text-sm font-medium">
+                    <CheckCircle size={16} />
+                    {uploadMessage}
+                  </div>
                 )}
 
               </div>
@@ -216,7 +381,7 @@ export default function Dashboard() {
 
               <div className="mt-8 flex justify-center">
                 <button
-                  onClick={() => setShowResults(true)}
+                  onClick={handleForecast}
                   className="px-8 py-2.5 bg-[#1c5ba9] hover:bg-[#154682] active:bg-[#0e2e56] text-white font-semibold rounded shadow-sm hover:shadow transition-all text-sm"
                 >
                   Run Forecast
@@ -259,50 +424,67 @@ export default function Dashboard() {
 
               {/* Results Table */}
               <div className="overflow-x-auto border-x border-b border-gray-300 rounded-b-lg">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-[#f0f4f8] text-gray-700 border-b border-gray-300 font-semibold">
+                <table className="w-full text-sm text-left border border-gray-300">
+                  <thead className="bg-[#f0f4f8] text-gray-700">
                     <tr>
-                      <th className="px-4 py-3 border-r border-gray-300 w-24">Part No.</th>
-                      <th className="px-4 py-3 border-r border-gray-300 w-48">Part Name</th>
-                      <th className="px-4 py-3 border-r border-gray-300 whitespace-nowrap">Current Stock</th>
-                      <th className="px-4 py-3 border-r border-gray-300 whitespace-nowrap">Avg. Consumption</th>
-                      <th className="px-4 py-3 border-r border-gray-300 whitespace-nowrap">Days of Supply</th>
-                      <th className="px-4 py-3 border-r border-gray-300 whitespace-nowrap">Forecast Qty</th>
-                      <th className="px-4 py-3 border-r border-gray-300 whitespace-nowrap">Unit MRP</th>
-                      <th className="px-4 py-3 border-r border-gray-300 whitespace-nowrap">Total MRP</th>
-                      <th className="px-4 py-3">Priority</th>
+                      <th className="px-4 py-2 border">Part No.</th>
+                      <th className="px-4 py-2 border">Part Name</th>
+                      <th className="px-4 py-2 border text-right">Stock</th>
+                      <th className="px-4 py-2 border text-right">Avg</th>
+                      <th className="px-4 py-2 border text-right">Days</th>
+                      <th className="px-4 py-2 border text-right">Forecast</th>
+                      <th className="px-4 py-2 border text-right">MRP</th>
+                      <th className="px-4 py-2 border text-right">Total</th>
+                      <th className="px-4 py-2 border text-center">Priority</th>
                     </tr>
                   </thead>
+
                   <tbody>
-                    {/* Empty rows to match the design (e.g. 5 blank rows) */}
-                    {[...Array(5)].map((_, idx) => (
-                      <tr key={idx} className="border-b border-gray-200 bg-white hover:bg-gray-50">
-                        <td className="px-4 py-4 border-r border-gray-200"></td>
-                        <td className="px-4 py-4 border-r border-gray-200"></td>
-                        <td className="px-4 py-4 border-r border-gray-200"></td>
-                        <td className="px-4 py-4 border-r border-gray-200"></td>
-                        <td className="px-4 py-4 border-r border-gray-200"></td>
-                        <td className="px-4 py-4 border-r border-gray-200"></td>
-                        <td className="px-4 py-4 border-r border-gray-200"></td>
-                        <td className="px-4 py-4 border-r border-gray-200"></td>
-                        <td className="px-4 py-4"></td>
+                    {forecastData.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="text-center py-4 text-gray-500">
+                          No Data Available
+                        </td>
                       </tr>
-                    ))}
+                    ) : (
+                      forecastData.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 border">{item.partNumber}</td>
+                          <td className="px-4 py-2 border">{item.description}</td>
+                          <td className="px-4 py-2 border text-right">{item.currentStock}</td>
+                          <td className="px-4 py-2 border text-right">{item.avgConsumption}</td>
+                          <td className="px-4 py-2 border text-right">{item.daysOfSupply}</td>
+                          <td className="px-4 py-2 border text-right">{item.forecastQty}</td>
+                          <td className="px-4 py-2 border text-right">₹ {item.unitMrp}</td>
+                          <td className="px-4 py-2 border text-right">₹ {item.totalMrp}</td>
+                          <td className="px-4 py-2 border text-center">{item.priority}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
 
               {/* Action Buttons */}
               <div className="flex justify-center gap-4 mt-8">
-                <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium text-gray-700">
+                <button
+                  onClick={() => handleDownload("excel")}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium text-gray-700"
+                >
                   <FileSpreadsheet size={16} className="text-green-600" />
                   Download Excel
                 </button>
-                <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium text-gray-700">
+                <button
+                  onClick={() => handleDownload("csv")}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium text-gray-700"
+                >
                   <FileSpreadsheet size={16} className="text-green-600" />
                   Download CSV
                 </button>
-                <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium text-gray-700">
+                <button
+                  onClick={() => handleDownload("pdf")}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium text-gray-700"
+                >
                   <Download size={16} className="text-red-500" />
                   Download PDF
                 </button>
