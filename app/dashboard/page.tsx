@@ -30,6 +30,7 @@ export default function Dashboard() {
   const [showResults, setShowResults] = useState(false);
 
   const [uploadMessage, setUploadMessage] = useState("");
+  const [jobId, setJobId] = useState(null);
 
   const fileTypeMap: Record<string, string> = {
     "Part Price List": "part-price",
@@ -53,11 +54,9 @@ export default function Dashboard() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-
     if (!file) return;
 
     const token = localStorage.getItem("accessToken");
-
     if (!token) {
       router.replace("/");
       return;
@@ -66,6 +65,7 @@ export default function Dashboard() {
     const formData = new FormData();
     formData.append("file", file);
 
+    // store selected file (UI purpose)
     setTabData((prev) => ({
       ...prev,
       [activeTab]: file,
@@ -73,35 +73,45 @@ export default function Dashboard() {
 
     setIsUploading(true);
     setUploadMessage("");
+
     try {
       const fileType = fileTypeMap[activeTab];
 
+      let url = `http://localhost:8080/api/file/upload/${fileType}`;
 
-      const res = await fetch(
-        `http://localhost:8080/api/file/upload/${fileType}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        });
-
-      setIsUploading(false);
-
-      if (!res.ok) {
-        throw new Error("Upload failed");
+      if (jobId) {
+        url += `?uploadJobId=${encodeURIComponent(jobId)}`;
       }
 
-      const data = await res.json();
-      setUploadedFileIds(prev => ({
-        ...prev,
-        [activeTab]: data.data.uploadJobId
-      }));
-      setUploadMessage(data.message);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
 
-    } catch (error) {
-      setUploadMessage("Wrong file uploaded ");
+      const data = await res.json(); // move this before checking res.ok
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Upload failed");
+      }
+
+      if (!jobId) {
+        setJobId(data.data.uploadJobId);
+      }
+
+      setUploadedFileIds((prev) => ({
+        ...prev,
+        [activeTab]: data.data.uploadJobId,
+      }));
+
+      setUploadMessage(data?.message || "Upload successful");
+
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      setUploadMessage(error.message || "Wrong file uploaded");
+    } finally {
       setIsUploading(false);
     }
   };
