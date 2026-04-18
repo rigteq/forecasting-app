@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useEffect } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function Login() {
   const [username, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -75,7 +77,7 @@ export default function Login() {
 
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-gray-700">
-                User ID
+                Username
               </label>
               <input
                 type="text"
@@ -90,13 +92,25 @@ export default function Login() {
               <label className="text-sm font-semibold text-gray-700">
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50"
-                required
-              />
+
+              {/* Wrapper must be relative */}
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-12 rounded-lg border border-gray-200 bg-gray-50"
+                  required
+                />
+
+                {/* Eye Icon */}
+                <span
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer text-gray-500"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </span>
+              </div>
 
               {error && (
                 <div className="text-red-500 text-sm font-medium mt-1">
@@ -104,7 +118,6 @@ export default function Login() {
                 </div>
               )}
             </div>
-
             <button
               type="submit"
               className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-lg"

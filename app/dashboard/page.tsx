@@ -52,6 +52,8 @@ export default function Dashboard() {
   ];
 
 
+
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -136,10 +138,8 @@ export default function Dashboard() {
     const token = localStorage.getItem("accessToken");
 
     try {
-      const anyFileId = Object.values(uploadedFileIds)[0];
-
       const res = await fetch(
-        `http://localhost:8080/api/forecast/run/${anyFileId}`,
+        `http://localhost:8080/api/forecast/${jobId}`,
         {
           method: "POST",
           headers: {
@@ -147,8 +147,8 @@ export default function Dashboard() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            forecastDays,
-            transitTime,
+            forecastDays: Number(forecastDays),
+            transitTime: Number(transitTime),
             orderFor,
             stockType,
           }),
@@ -159,8 +159,8 @@ export default function Dashboard() {
         throw new Error("Forecast failed");
       }
 
-
       const data = await res.json();
+
       console.log("Forecast Data:", data);
 
       setForecastData(data || []);
@@ -206,19 +206,32 @@ export default function Dashboard() {
   }, [router]);
 
   const handleDownload = async (type: string) => {
-    const anyFileId = Object.values(uploadedFileIds)[0];
-    if (!anyFileId) return;
+    if (!jobId) return;
 
     const token = localStorage.getItem("accessToken");
 
     const res = await fetch(
-      `http://localhost:8080/api/forecast/download/${anyFileId}?type=${type}`,
+      `http://localhost:8080/api/download/${type}/${jobId}`,
       {
+        method: "POST", // ✅ important
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          forecastDays: 30,
+          transitTime: 5,
+          stockType: "BELOW_SAFETY",
+        }),
       }
     );
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("Download error:", text);
+      alert("Download failed");
+      return;
+    }
 
     const blob = await res.blob();
     const url = window.URL.createObjectURL(blob);
@@ -228,6 +241,40 @@ export default function Dashboard() {
     a.download = `forecast.${type === "excel" ? "xlsx" : type}`;
     a.click();
   };
+
+  const summary = React.useMemo(() => {
+    if (!forecastData || forecastData.length === 0) {
+      return {
+        totalParts: 0,
+        totalQuantity: 0,
+        highPriorityParts: 0,
+        forecastCost: 0,
+      };
+    }
+
+    const totalParts = new Set(forecastData.map(p => p.partNumber)).size;
+
+    const totalQuantity = forecastData.reduce(
+      (sum, item) => sum + (Number(item.forecast) || 0),
+      0
+    );
+
+    const forecastCost = forecastData.reduce(
+      (sum, item) => sum + (Number(item.total) || 0),
+      0
+    );
+
+    const highPriorityParts = forecastData.filter(
+      item => item.priority === "HIGH"
+    ).length;
+
+    return {
+      totalParts,
+      totalQuantity,
+      highPriorityParts,
+      forecastCost,
+    };
+  }, [forecastData]);
 
   return (
     <div className="min-h-screen bg-[#f5f8fa] font-sans text-gray-800 flex flex-col">
@@ -416,19 +463,27 @@ export default function Dashboard() {
               <div className="bg-gradient-to-r from-[#1c5ba9] to-[#286bd4] text-white rounded-t-lg px-6 py-3 flex flex-wrap justify-between items-center text-sm font-medium shadow-sm">
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">Forecast Cost:</span>
-                  <span className="text-lg font-bold">₹ 1,231,234.0</span>
+                  <span className="text-lg font-bold">
+                    ₹ {summary.forecastCost.toLocaleString()}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">Total Part No.:</span>
-                  <span className="text-lg font-bold">123</span>
+                  <span className="text-lg font-bold">
+                    {summary.totalParts}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">Total Part Quantity:</span>
-                  <span className="text-lg font-bold">4513</span>
+                  <span className="text-lg font-bold">
+                    {summary.totalQuantity}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">High Priority Parts:</span>
-                  <span className="text-lg font-bold">23</span>
+                  <span className="text-lg font-bold">
+                    {summary.highPriorityParts}
+                  </span>
                 </div>
               </div>
 
@@ -437,14 +492,14 @@ export default function Dashboard() {
                 <table className="w-full text-sm text-left border border-gray-300">
                   <thead className="bg-[#f0f4f8] text-gray-700">
                     <tr>
-                      <th className="px-4 py-2 border">Part No.</th>
+                      <th className="px-4 py-2 border">Part Number</th>
                       <th className="px-4 py-2 border">Part Name</th>
-                      <th className="px-4 py-2 border text-right">Stock</th>
-                      <th className="px-4 py-2 border text-right">Avg</th>
-                      <th className="px-4 py-2 border text-right">Days</th>
-                      <th className="px-4 py-2 border text-right">Forecast</th>
-                      <th className="px-4 py-2 border text-right">MRP</th>
-                      <th className="px-4 py-2 border text-right">Total</th>
+                      <th className="px-4 py-2 border text-right">Current Stock</th>
+                      <th className="px-4 py-2 border text-right">Average Consumption</th>
+                      <th className="px-4 py-2 border text-right">Days of Supply</th>
+                      <th className="px-4 py-2 border text-right">Forecast Qty</th>
+                      <th className="px-4 py-2 border text-right">Unit MRP ₹</th>
+                      <th className="px-4 py-2 border text-right">Total MRP ₹</th>
                       <th className="px-4 py-2 border text-center">Priority</th>
                     </tr>
                   </thead>
@@ -460,13 +515,13 @@ export default function Dashboard() {
                       forecastData.map((item, idx) => (
                         <tr key={idx} className="hover:bg-gray-50">
                           <td className="px-4 py-2 border">{item.partNumber}</td>
-                          <td className="px-4 py-2 border">{item.description}</td>
+                          <td className="px-4 py-2 border">{item.partName}</td>
                           <td className="px-4 py-2 border text-right">{item.currentStock}</td>
                           <td className="px-4 py-2 border text-right">{item.avgConsumption}</td>
                           <td className="px-4 py-2 border text-right">{item.daysOfSupply}</td>
                           <td className="px-4 py-2 border text-right">{item.forecastQty}</td>
-                          <td className="px-4 py-2 border text-right">₹ {item.unitMrp}</td>
-                          <td className="px-4 py-2 border text-right">₹ {item.totalMrp}</td>
+                          <td className="px-4 py-2 border text-right"> {item.unitMrp}</td>
+                          <td className="px-4 py-2 border text-right"> {item.totalMrp}</td>
                           <td className="px-4 py-2 border text-center">{item.priority}</td>
                         </tr>
                       ))
