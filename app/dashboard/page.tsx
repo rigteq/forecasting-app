@@ -17,8 +17,10 @@ export default function Dashboard() {
 
     if (!token) {
       router.replace("/");
+    } else {
+      setLoading(false);
     }
-  }, [router]);
+  }, []);
 
 
   const [activeTab, setActiveTab] = useState("Forecasting");
@@ -28,6 +30,7 @@ export default function Dashboard() {
   const [stockType, setStockType] = useState("Below Safety Stock");
   const [tabData, setTabData] = useState<Record<string, File | null>>({});
   const [showResults, setShowResults] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [uploadMessage, setUploadMessage] = useState("");
   const [jobId, setJobId] = useState(null);
@@ -172,13 +175,9 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (loading) return;
     const fetchDashboard = async () => {
       const token = localStorage.getItem("accessToken");
-
-      if (!token) {
-        router.replace("/");
-        return;
-      }
 
       try {
         const res = await fetch("http://localhost:8080/api/dashboard", {
@@ -203,7 +202,7 @@ export default function Dashboard() {
     };
 
     fetchDashboard();
-  }, [router]);
+  }, [loading]);
 
   const handleDownload = async (type: string) => {
     if (!jobId) return;
@@ -275,6 +274,10 @@ export default function Dashboard() {
       forecastCost,
     };
   }, [forecastData]);
+
+  if (loading) {
+    return <p>Loading...</p>;
+  }
 
   return (
     <div className="min-h-screen bg-[#f5f8fa] font-sans text-gray-800 flex flex-col">
