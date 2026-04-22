@@ -5,6 +5,14 @@ import React, { useState } from "react";
 import { FileSpreadsheet, Download, AlertCircle, LogOut } from "lucide-react";
 import { CheckCircle } from "lucide-react";
 
+type SummaryData = {
+  forecastCost: number;
+  totalPartNo: number;
+  totalQuantity: number;
+  highPriorityParts: number;
+  data: any[];
+};
+
 
 export default function Dashboard() {
   const router = useRouter();
@@ -32,8 +40,10 @@ export default function Dashboard() {
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(true);
 
+
   const [uploadMessage, setUploadMessage] = useState("");
-  const [jobId, setJobId] = useState(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
 
   const fileTypeMap: Record<string, string> = {
     "Part Price List": "part-price",
@@ -166,7 +176,8 @@ export default function Dashboard() {
 
       console.log("Forecast Data:", data);
 
-      setForecastData(data || []);
+      setForecastData(data.data || []);
+      setSummaryData(data);
       setShowResults(true);
 
     } catch (error) {
@@ -212,15 +223,15 @@ export default function Dashboard() {
     const res = await fetch(
       `http://localhost:8080/api/download/${type}/${jobId}`,
       {
-        method: "POST", // ✅ important
+        method: "POST", // important
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          forecastDays: 30,
-          transitTime: 5,
-          stockType: "BELOW_SAFETY",
+          forecastDays: Number(forecastDays),
+          transitTime: Number(transitTime),
+          stockType,
         }),
       }
     );
@@ -241,6 +252,8 @@ export default function Dashboard() {
     a.click();
   };
 
+
+
   const summary = React.useMemo(() => {
     if (!forecastData || forecastData.length === 0) {
       return {
@@ -254,12 +267,12 @@ export default function Dashboard() {
     const totalParts = new Set(forecastData.map(p => p.partNumber)).size;
 
     const totalQuantity = forecastData.reduce(
-      (sum, item) => sum + (Number(item.forecast) || 0),
+      (sum, item) => sum + (Number(item.forecastQty) || 0),
       0
     );
 
     const forecastCost = forecastData.reduce(
-      (sum, item) => sum + (Number(item.total) || 0),
+      (sum, item) => sum + (Number(item.totalMrp) || 0),
       0
     );
 
@@ -274,10 +287,6 @@ export default function Dashboard() {
       forecastCost,
     };
   }, [forecastData]);
-
-  if (loading) {
-    return <p>Loading...</p>;
-  }
 
   return (
     <div className="min-h-screen bg-[#f5f8fa] font-sans text-gray-800 flex flex-col">
@@ -467,25 +476,25 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">Forecast Cost:</span>
                   <span className="text-lg font-bold">
-                    ₹ {summary.forecastCost.toLocaleString()}
+                    ₹ {summaryData?.forecastCost?.toLocaleString() || 0}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">Total Part No.:</span>
                   <span className="text-lg font-bold">
-                    {summary.totalParts}
+                    {summary?.totalParts || 0}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">Total Part Quantity:</span>
                   <span className="text-lg font-bold">
-                    {summary.totalQuantity}
+                    {summary?.totalQuantity || 0}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">High Priority Parts:</span>
                   <span className="text-lg font-bold">
-                    {summary.highPriorityParts}
+                    {summary?.highPriorityParts || 0}
                   </span>
                 </div>
               </div>
