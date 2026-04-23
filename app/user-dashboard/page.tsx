@@ -13,12 +13,29 @@ type SummaryData = {
   data: any[];
 };
 
-
-export default function Dashboard() {
+export default function UserDashboard() {
   const router = useRouter();
   const [uploadedFileIds, setUploadedFileIds] = useState<Record<string, string>>({});
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  // New state for Part Price List view in User Dashboard
+  const [partPriceList, setPartPriceList] = useState<any[]>([]);
+  const [partPriceLoading, setPartPriceLoading] = useState(false);
+  const [partPriceError, setPartPriceError] = useState("");
+
+  const [activeTab, setActiveTab] = useState("Part Price List");
+  const [forecastDays, setForecastDays] = useState("15");
+  const [transitTime, setTransitTime] = useState("5");
+  const [orderFor, setOrderFor] = useState("All Part");
+  const [stockType, setStockType] = useState("Below Safety Stock");
+  const [tabData, setTabData] = useState<Record<string, File | null>>({});
+  const [showResults, setShowResults] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -30,23 +47,8 @@ export default function Dashboard() {
     }
   }, []);
 
-
-  const [activeTab, setActiveTab] = useState("Forecasting");
-  const [forecastDays, setForecastDays] = useState("15");
-  const [transitTime, setTransitTime] = useState("5");
-  const [orderFor, setOrderFor] = useState("All Part");
-  const [stockType, setStockType] = useState("Below Safety Stock");
-  const [tabData, setTabData] = useState<Record<string, File | null>>({});
-  const [showResults, setShowResults] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-
-  const [uploadMessage, setUploadMessage] = useState("");
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
-
   const fileTypeMap: Record<string, string> = {
-    "Part Price List": "part-price",
+    // "Part Price List": "part-price", // REMOVED file upload for user
     "No Forecast": "no-forecast",
     "Current Stock": "current-stock",
     "Transit": "transit",
@@ -64,10 +66,45 @@ export default function Dashboard() {
     "Forecasting",
   ];
 
+  // Fetch Part Price List from backend for User Dashboard
+  useEffect(() => {
+    if (activeTab === "Part Price List") {
+      fetchPartPriceList();
+    }
+  }, [activeTab]);
 
+  const fetchPartPriceList = async () => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
+
+    setPartPriceLoading(true);
+    setPartPriceError("");
+    try {
+      const res = await fetch("http://localhost:8080/api/part-price/all", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch Part Price List");
+      }
+
+      const data = await res.json();
+      // Ensure we access data array safely depending on standard API wrapper
+      setPartPriceList(data.data || data || []);
+    } catch (err: any) {
+      setPartPriceError(err.message || "Failed to load part price list.");
+    } finally {
+      setPartPriceLoading(false);
+    }
+  };
 
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (activeTab === "Part Price List") return; // Upload disabled for this tab
+
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -106,7 +143,7 @@ export default function Dashboard() {
         body: formData,
       });
 
-      const data = await res.json(); // move this before checking res.ok
+      const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data?.message || "Upload failed");
@@ -133,7 +170,7 @@ export default function Dashboard() {
 
   const handleForecast = async () => {
     const requiredTabs = [
-      "Part Price List",
+      // "Part Price List", // REMOVED check, as user doesn't upload this
       "No Forecast",
       "Current Stock",
       "Transit",
@@ -144,7 +181,7 @@ export default function Dashboard() {
     const allUploaded = requiredTabs.every(tab => uploadedFileIds[tab]);
 
     if (!allUploaded) {
-      alert("Please upload all 6 files first");
+      alert("Please upload all 5 files first"); // Updated to 5 files instead of 6
       return;
     }
 
@@ -175,8 +212,6 @@ export default function Dashboard() {
       const data = await res.json();
 
       console.log("Forecast Data:", data);
-      console.log("FULL API RESPONSE ", data);
-      console.log("TOTAL QTY FROM BACKEND ", data.totalQuantity);
 
       setForecastData(data.data || []);
       setSummaryData(data);
@@ -254,9 +289,45 @@ export default function Dashboard() {
     a.click();
   };
 
+
+
+  const summary = React.useMemo(() => {
+    if (!forecastData || forecastData.length === 0) {
+      return {
+        totalParts: 0,
+        totalQuantity: 0,
+        highPriorityParts: 0,
+        forecastCost: 0,
+      };
+    }
+
+    const totalParts = new Set(forecastData.map(p => p.partNumber)).size;
+
+    const totalQuantity = forecastData.reduce(
+      (sum, item) => sum + (Number(item.forecastQty) || 0),
+      0
+    );
+
+    const forecastCost = forecastData.reduce(
+      (sum, item) => sum + (Number(item.totalMrp) || 0),
+      0
+    );
+
+    const highPriorityParts = forecastData.filter(
+      item => item.priority === "HIGH"
+    ).length;
+
+    return {
+      totalParts,
+      totalQuantity,
+      highPriorityParts,
+      forecastCost,
+    };
+  }, [forecastData]);
+
   return (
     <div className="min-h-screen bg-[#f5f8fa] font-sans text-gray-800 flex flex-col">
-      {/* Header */}
+      {/* Header element, omitted like origin */}
       {/* Main Content Area */}
       <main className="flex-grow p-6 w-full max-w-[1400px] mx-auto flex flex-col gap-6">
 
@@ -281,15 +352,67 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Fills the remaining space to look like the image block */}
           <div className="flex-grow border-b border-gray-300"></div>
         </div>
 
         {/* Tab Content Wrapper */}
         <div className="flex flex-col gap-6">
 
+          {/* User Part Price List Table View */}
+          {activeTab === "Part Price List" && (
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 flex flex-col gap-4">
+              <h2 className="text-lg font-bold text-[#1c5ba9] whitespace-nowrap mb-2">Part Price List</h2>
+
+              {partPriceLoading ? (
+                <div className="text-center py-10">
+                  <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent border-solid rounded-full animate-spin"></div>
+                  <p className="mt-4 text-gray-600 font-medium">Loading Part Prices...</p>
+                </div>
+              ) : partPriceError ? (
+                <div className="text-center py-10 text-red-500 font-medium">
+                  {partPriceError}
+                </div>
+              ) : (
+                <div className="overflow-x-auto border-x border-b border-gray-300 rounded-lg max-h-[500px]">
+                  <table className="w-full text-sm text-left border border-gray-300">
+                    <thead className="bg-[#f0f4f8] text-gray-700 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 border-b border-gray-300">Part Number</th>
+                        <th className="px-4 py-3 border-b border-gray-300">Part Name</th>
+                        <th className="px-4 py-3 border-b border-gray-300 text-right">Unit MRP</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {partPriceList.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="text-center py-8 text-gray-500">
+                            No part prices available
+                          </td>
+                        </tr>
+                      ) : (
+                        partPriceList.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50 border-b border-gray-200 last:border-0">
+                            <td className="px-4 py-2 border-r border-gray-300">
+                              {item.partNumber || item.partNo || item.part_number || "-"}
+                            </td>
+                            <td className="px-4 py-2 border-r border-gray-300">
+                              {item.partName || item.part_name || "-"}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              {item.mrp !== undefined && item.mrp !== null ? item.mrp : "-"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Warning Message Box + Upload UI */}
-          {activeTab !== "Forecasting" && (
+          {activeTab !== "Forecasting" && activeTab !== "Part Price List" && (
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 flex flex-col gap-5">
 
               {/* Warning */}
@@ -448,21 +571,19 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">Total Part No.:</span>
                   <span className="text-lg font-bold">
-                    {summaryData?.totalPartNo ?? 0}
+                    {summary?.totalParts || 0}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">Total Part Quantity:</span>
                   <span className="text-lg font-bold">
-                    {summaryData?.totalQuantity != null
-                      ? Number(summaryData.totalQuantity).toFixed(2)
-                      : "0.00"}
+                    {summary?.totalQuantity || 0}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">High Priority Parts:</span>
                   <span className="text-lg font-bold">
-                    {summaryData?.highPriorityParts ?? 0}
+                    {summary?.highPriorityParts || 0}
                   </span>
                 </div>
               </div>

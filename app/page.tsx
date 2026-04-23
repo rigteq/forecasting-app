@@ -19,9 +19,14 @@ export default function Login() {
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
+    const userRole = localStorage.getItem("role");
 
     if (token) {
-      router.replace("/dashboard");
+      if (userRole === "ROLE_ADMIN") {
+        router.replace("/dashboard");
+      } else {
+        router.replace("/user-dashboard");
+      }
     }
   }, []);
 
@@ -67,7 +72,11 @@ export default function Login() {
       localStorage.setItem("role", data.role);
       console.log("Login Response:", data);
       // Role-based redirect
-      router.replace("/dashboard");
+      if (data.role === "ROLE_ADMIN") {
+        router.replace("/dashboard");
+      } else {
+        router.replace("/user-dashboard");
+      }
 
     } catch (err) {
       setError("Server error. Please try again.");
