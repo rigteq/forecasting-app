@@ -2,8 +2,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
-import { FileSpreadsheet, Download, AlertCircle, LogOut } from "lucide-react";
+import { FileSpreadsheet, Download, AlertCircle, LogOut, X } from "lucide-react";
 import { CheckCircle } from "lucide-react";
+import axios from "axios";
+import { toast } from "react-toastify";
 
 type SummaryData = {
   forecastCost: number;
@@ -19,6 +21,7 @@ export default function Dashboard() {
   const [uploadedFileIds, setUploadedFileIds] = useState<Record<string, string>>({});
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -88,6 +91,7 @@ export default function Dashboard() {
 
     setIsUploading(true);
     setUploadMessage("");
+    setProgress(0);
 
     try {
       const fileType = fileTypeMap[activeTab];
@@ -98,19 +102,21 @@ export default function Dashboard() {
         url += `?uploadJobId=${encodeURIComponent(jobId)}`;
       }
 
-      const res = await fetch(url, {
-        method: "POST",
+      const res = await axios.post(url, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        body: formData,
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setProgress(percentCompleted);
+          }
+        },
       });
 
-      const data = await res.json(); // move this before checking res.ok
-
-      if (!res.ok) {
-        throw new Error(data?.message || "Upload failed");
-      }
+      const data = res.data;
 
       if (!jobId) {
         setJobId(data.data.uploadJobId);
@@ -122,13 +128,47 @@ export default function Dashboard() {
       }));
 
       setUploadMessage(data?.message || "Upload successful");
+      toast.success(data?.message || "Upload successful");
 
     } catch (error: any) {
-      console.error("Upload error:", error);
-      setUploadMessage(error.message || "Wrong file uploaded");
+      if (error.response) {
+        const status = error.response.status;
+
+        if (status === 409) {
+          toast.error("File already present");
+          setUploadMessage("File already present");
+        } else {
+          const message =
+            error.response.data?.message || "Something went wrong";
+          toast.error(message);
+          setUploadMessage(message);
+        }
+      } else {
+        toast.error("Network error");
+        setUploadMessage("Network error");
+      }
+
+      setProgress(0);
     } finally {
       setIsUploading(false);
+      // Reset input value to allow uploading the same file again if it was removed
+      e.target.value = '';
     }
+  };
+
+  const handleRemoveFile = (tab: string) => {
+    setTabData((prev) => {
+      const newData = { ...prev };
+      delete newData[tab];
+      return newData;
+    });
+    setUploadedFileIds((prev) => {
+      const newIds = { ...prev };
+      delete newIds[tab];
+      return newIds;
+    });
+    setUploadMessage("");
+    setProgress(0);
   };
 
   const handleForecast = async () => {
@@ -144,7 +184,7 @@ export default function Dashboard() {
     const allUploaded = requiredTabs.every(tab => uploadedFileIds[tab]);
 
     if (!allUploaded) {
-      alert("Please upload all 6 files first");
+      toast.error("Please upload all required files first");
       return;
     }
 
@@ -241,7 +281,7 @@ export default function Dashboard() {
     if (!res.ok) {
       const text = await res.text();
       console.error("Download error:", text);
-      alert("Download failed");
+      toast.error("Download failed");
       return;
     }
 
@@ -313,30 +353,46 @@ export default function Dashboard() {
                   Files Supported: Excel, CSV
                 </p>
 
-                <label className="cursor-pointer px-5 py-2 bg-[#1c5ba9] text-white rounded shadow hover:bg-[#154682] transition text-sm font-medium">
+                <label className={`cursor-pointer px-5 py-2 bg-[#1c5ba9] text-white rounded shadow transition text-sm font-medium ${isUploading ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'hover:bg-[#154682]'}`}>
 
                   Choose File
                   <input
                     type="file"
                     className="hidden"
                     onChange={handleFileChange}
+                    disabled={isUploading}
                   />
                 </label>
 
                 {isUploading && (
-                  <div className="mt-3 flex items-center gap-2 text-blue-600 text-sm font-medium">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    Uploading...
+                  <div className="mt-4 w-full max-w-md">
+                    <div className="flex justify-between text-sm text-blue-600 mb-1 font-medium">
+                      <span>Uploading...</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                    </div>
                   </div>
                 )}
 
-                {tabData[activeTab] && (
-                  <p className="text-sm text-green-600 mt-3">
-                    Selected: {tabData[activeTab].name}
-                  </p>
+                {tabData[activeTab] && !isUploading && (
+                  <div className="mt-4 w-full max-w-md flex flex-col gap-2">
+                    <div className="flex items-center justify-between bg-white border border-gray-200 px-3 py-2 rounded-md shadow-sm">
+                      <span className="text-sm text-gray-700 truncate max-w-[80%]">{(tabData[activeTab] as File).name}</span>
+                      <button
+                        onClick={() => handleRemoveFile(activeTab)}
+                        className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                        title="Remove file"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
                 )}
+
                 {uploadMessage && !isUploading && (
-                  <div className="flex items-center gap-2 mt-2 text-green-600 text-sm font-medium">
+                  <div className="flex items-center gap-2 mt-4 text-green-600 text-sm font-medium">
                     <CheckCircle size={16} />
                     {uploadMessage}
                   </div>

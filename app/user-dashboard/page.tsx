@@ -2,8 +2,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
-import { FileSpreadsheet, Download, AlertCircle, LogOut } from "lucide-react";
+import { FileSpreadsheet, Download, AlertCircle, LogOut, X } from "lucide-react";
 import { CheckCircle } from "lucide-react";
+import axios from "axios";
+import { toast } from "react-toastify";
 
 type SummaryData = {
   forecastCost: number;
@@ -18,6 +20,7 @@ export default function UserDashboard() {
   const [uploadedFileIds, setUploadedFileIds] = useState<Record<string, string>>({});
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   // New state for Part Price List view in User Dashboard
   const [partPriceList, setPartPriceList] = useState<any[]>([]);
@@ -29,7 +32,7 @@ export default function UserDashboard() {
   const [transitTime, setTransitTime] = useState("5");
   const [orderFor, setOrderFor] = useState("All Part");
   const [stockType, setStockType] = useState("Below Safety Stock");
-  const [tabData, setTabData] = useState<Record<string, File | null>>({});
+  const [tabData, setTabData] = useState<Record<string, any>>({});
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -105,8 +108,19 @@ export default function UserDashboard() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (activeTab === "Part Price List") return; // Upload disabled for this tab
 
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (activeTab === "Quarter Consumption") {
+      const existingFiles = tabData[activeTab] || [];
+      const totalFiles = existingFiles.length + files.length;
+
+      if (totalFiles > 6) {
+        toast.warning("Maximum 6 files allowed");
+        e.target.value = '';
+        return;
+      }
+    }
 
     const token = localStorage.getItem("accessToken");
     if (!token) {
@@ -115,16 +129,20 @@ export default function UserDashboard() {
     }
 
     const formData = new FormData();
-    formData.append("file", file);
+    files.forEach(f => formData.append("file", f));
 
     // store selected file (UI purpose)
     setTabData((prev) => ({
       ...prev,
-      [activeTab]: file,
+      [activeTab]:
+        activeTab === "Quarter Consumption"
+          ? [...(prev[activeTab] || []), ...files]
+          : files[0],
     }));
 
     setIsUploading(true);
     setUploadMessage("");
+    setProgress(0);
 
     try {
       const fileType = fileTypeMap[activeTab];
@@ -135,19 +153,19 @@ export default function UserDashboard() {
         url += `?uploadJobId=${encodeURIComponent(jobId)}`;
       }
 
-      const res = await fetch(url, {
-        method: "POST",
+      const res = await axios.post(url, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        body: formData,
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setProgress(percentCompleted);
+          }
+        },
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.message || "Upload failed");
-      }
+      const data = res.data;
 
       if (!jobId) {
         setJobId(data.data.uploadJobId);
@@ -159,13 +177,32 @@ export default function UserDashboard() {
       }));
 
       setUploadMessage(data?.message || "Upload successful");
+      toast.success(data?.message || "Upload successful");
 
     } catch (error: any) {
       console.error("Upload error:", error);
-      setUploadMessage(error.message || "Wrong file uploaded");
+      const errorMessage = error.response?.data?.message || error.message || "Wrong file uploaded";
+      setUploadMessage(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsUploading(false);
+      e.target.value = '';
     }
+  };
+
+  const handleRemoveFile = (tab: string) => {
+    setTabData((prev) => {
+      const newData = { ...prev };
+      delete newData[tab];
+      return newData;
+    });
+    setUploadedFileIds((prev) => {
+      const newIds = { ...prev };
+      delete newIds[tab];
+      return newIds;
+    });
+    setUploadMessage("");
+    setProgress(0);
   };
 
   const handleForecast = async () => {
@@ -181,7 +218,7 @@ export default function UserDashboard() {
     const allUploaded = requiredTabs.every(tab => uploadedFileIds[tab]);
 
     if (!allUploaded) {
-      alert("Please upload all 5 files first"); // Updated to 5 files instead of 6
+      toast.error("Please upload all required files first");
       return;
     }
 
@@ -276,7 +313,7 @@ export default function UserDashboard() {
     if (!res.ok) {
       const text = await res.text();
       console.error("Download error:", text);
-      alert("Download failed");
+      toast.error("Download failed");
       return;
     }
 
@@ -289,8 +326,26 @@ export default function UserDashboard() {
     a.click();
   };
 
+  const handleRemoveSingleFile = (tab: string, index: number) => {
+    setTabData((prev) => {
+      const updatedFiles = [...(prev[tab] || [])];
+      updatedFiles.splice(index, 1);
 
+      return {
+        ...prev,
+        [tab]: updatedFiles,
+      };
+    });
 
+    // If no files left → remove upload flag
+    if ((tabData[tab]?.length || 0) <= 1) {
+      setUploadedFileIds((prev) => {
+        const updated = { ...prev };
+        delete updated[tab];
+        return updated;
+      });
+    }
+  };
   const summary = React.useMemo(() => {
     if (!forecastData || forecastData.length === 0) {
       return {
@@ -361,7 +416,16 @@ export default function UserDashboard() {
           {/* User Part Price List Table View */}
           {activeTab === "Part Price List" && (
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 flex flex-col gap-4">
-              <h2 className="text-lg font-bold text-[#1c5ba9] whitespace-nowrap mb-2">Part Price List</h2>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
+                <h2 className="text-lg font-bold text-[#1c5ba9] whitespace-nowrap">Part Price List</h2>
+                {!partPriceLoading && !partPriceError && (
+                  <div className="flex items-center">
+                    <span className="text-sm font-semibold text-gray-700 bg-blue-50 border border-blue-100 px-3 py-1 rounded-md">
+                      Total Records: {partPriceList.length}
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {partPriceLoading ? (
                 <div className="text-center py-10">
@@ -436,30 +500,62 @@ export default function UserDashboard() {
                   Files Supported: Excel, CSV
                 </p>
 
-                <label className="cursor-pointer px-5 py-2 bg-[#1c5ba9] text-white rounded shadow hover:bg-[#154682] transition text-sm font-medium">
+                <label className={`cursor-pointer px-5 py-2 bg-[#1c5ba9] text-white rounded shadow transition text-sm font-medium ${isUploading ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'hover:bg-[#154682]'}`}>
 
                   Choose File
                   <input
                     type="file"
+                    multiple={activeTab === "Quarter Consumption"}
                     className="hidden"
                     onChange={handleFileChange}
+                    disabled={isUploading}
                   />
                 </label>
 
                 {isUploading && (
-                  <div className="mt-3 flex items-center gap-2 text-blue-600 text-sm font-medium">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    Uploading...
+                  <div className="mt-4 w-full max-w-md">
+                    <div className="flex justify-between text-sm text-blue-600 mb-1 font-medium">
+                      <span>Uploading...</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                    </div>
                   </div>
                 )}
 
-                {tabData[activeTab] && (
-                  <p className="text-sm text-green-600 mt-3">
-                    Selected: {tabData[activeTab].name}
-                  </p>
+                {tabData[activeTab] && !isUploading && (
+                  <div className="mt-4 w-full max-w-md flex flex-col gap-2">
+                    {Array.isArray(tabData[activeTab]) ? (
+                      tabData[activeTab].map((file: File, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between bg-white border border-gray-200 px-3 py-2 rounded-md shadow-sm">
+                          <span className="text-sm text-gray-700 truncate max-w-[80%]">{file.name}</span>
+                          <button
+                            onClick={() => handleRemoveSingleFile(activeTab, idx)}
+                            className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                            title="Remove file"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-between bg-white border border-gray-200 px-3 py-2 rounded-md shadow-sm">
+                        <span className="text-sm text-gray-700 truncate max-w-[80%]">{(tabData[activeTab] as File).name}</span>
+                        <button
+                          onClick={() => handleRemoveFile(activeTab)}
+                          className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                          title="Remove file"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
+
                 {uploadMessage && !isUploading && (
-                  <div className="flex items-center gap-2 mt-2 text-green-600 text-sm font-medium">
+                  <div className="flex items-center gap-2 mt-4 text-green-600 text-sm font-medium">
                     <CheckCircle size={16} />
                     {uploadMessage}
                   </div>
