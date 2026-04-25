@@ -685,46 +685,54 @@ export default function UserDashboard() {
               </div>
 
               {/* Results Table */}
-              <div className="overflow-x-auto border-x border-b border-gray-300 rounded-b-lg">
-                <table className="w-full text-sm text-left border border-gray-300">
-                  <thead className="bg-[#f0f4f8] text-gray-700">
-                    <tr>
-                      <th className="px-4 py-2 border">Part Number</th>
-                      <th className="px-4 py-2 border">Part Name</th>
-                      <th className="px-4 py-2 border text-right">Current Stock</th>
-                      <th className="px-4 py-2 border text-right">Average Consumption</th>
-                      <th className="px-4 py-2 border text-right">Days of Supply</th>
-                      <th className="px-4 py-2 border text-right">Forecast Qty</th>
-                      <th className="px-4 py-2 border text-right">Unit MRP ₹</th>
-                      <th className="px-4 py-2 border text-right">Total MRP ₹</th>
-                      <th className="px-4 py-2 border text-center">Priority</th>
-                    </tr>
-                  </thead>
+              {/* Results Table */}
+              <div className="border-x border-b border-gray-300 rounded-b-lg">
 
-                  <tbody>
-                    {forecastData.length === 0 ? (
+                <div className="overflow-auto max-h-[500px]">
+
+                  <table className="w-full text-sm text-left border border-gray-300">
+
+                    <thead className="bg-[#f0f4f8] text-gray-700 sticky top-0 z-10">
                       <tr>
-                        <td colSpan={9} className="text-center py-4 text-gray-500">
-                          No Data Available
-                        </td>
+                        <th className="px-4 py-2 border">Part Number</th>
+                        <th className="px-4 py-2 border">Part Name</th>
+                        <th className="px-4 py-2 border text-right">Current Stock</th>
+                        <th className="px-4 py-2 border text-right">Average Consumption</th>
+                        <th className="px-4 py-2 border text-right">Days of Supply</th>
+                        <th className="px-4 py-2 border text-right">Forecast Qty</th>
+                        <th className="px-4 py-2 border text-right">Unit MRP ₹</th>
+                        <th className="px-4 py-2 border text-right">Total MRP ₹</th>
+                        <th className="px-4 py-2 border text-center">Priority</th>
                       </tr>
-                    ) : (
-                      forecastData.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 border">{item.partNumber}</td>
-                          <td className="px-4 py-2 border">{item.partName}</td>
-                          <td className="px-4 py-2 border text-right">{item.currentStock}</td>
-                          <td className="px-4 py-2 border text-right">{item.avgConsumption}</td>
-                          <td className="px-4 py-2 border text-right">{item.daysOfSupply}</td>
-                          <td className="px-4 py-2 border text-right">{item.forecastQty}</td>
-                          <td className="px-4 py-2 border text-right"> {item.unitMrp}</td>
-                          <td className="px-4 py-2 border text-right"> {item.totalMrp}</td>
-                          <td className="px-4 py-2 border text-center">{item.priority}</td>
+                    </thead>
+
+                    <tbody>
+                      {forecastData.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="text-center py-4 text-gray-500">
+                            No Data Available
+                          </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        forecastData.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 border">{item.partNumber}</td>
+                            <td className="px-4 py-2 border">{item.partName}</td>
+                            <td className="px-4 py-2 border text-right">{item.currentStock}</td>
+                            <td className="px-4 py-2 border text-right">{item.avgConsumption}</td>
+                            <td className="px-4 py-2 border text-right">{item.daysOfSupply}</td>
+                            <td className="px-4 py-2 border text-right">{item.forecastQty}</td>
+                            <td className="px-4 py-2 border text-right">{item.unitMrp}</td>
+                            <td className="px-4 py-2 border text-right">{item.totalMrp}</td>
+                            <td className="px-4 py-2 border text-center">{item.priority}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+
+                  </table>
+
+                </div>
               </div>
 
               {/* Action Buttons */}
