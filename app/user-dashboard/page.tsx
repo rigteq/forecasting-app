@@ -685,7 +685,6 @@ export default function UserDashboard() {
               </div>
 
               {/* Results Table */}
-              {/* Results Table */}
               <div className="border-x border-b border-gray-300 rounded-b-lg">
 
                 <div className="overflow-auto max-h-[500px]">
