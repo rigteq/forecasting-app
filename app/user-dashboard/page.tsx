@@ -702,8 +702,8 @@ export default function UserDashboard() {
                   onClick={handleForecast}
                   disabled={isForecasting}
                   className={`px-8 py-2.5 font-semibold rounded shadow-sm hover:shadow transition-all text-sm flex items-center justify-center min-w-[160px] ${isForecasting
-                      ? "bg-gray-400 cursor-not-allowed text-white"
-                      : "bg-[#1c5ba9] hover:bg-[#154682] active:bg-[#0e2e56] text-white"
+                    ? "bg-gray-400 cursor-not-allowed text-white"
+                    : "bg-[#1c5ba9] hover:bg-[#154682] active:bg-[#0e2e56] text-white"
                     }`}
                 >
                   {isForecasting ? (
