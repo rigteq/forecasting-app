@@ -21,6 +21,7 @@ export default function UserDashboard() {
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isForecasting, setIsForecasting] = useState(false);
 
   // New state for Part Price List view in User Dashboard
   const [partPriceList, setPartPriceList] = useState<any[]>([]);
@@ -47,8 +48,49 @@ export default function UserDashboard() {
       router.replace("/");
     } else {
       setLoading(false);
+
+      // Restore state on reload
+      const savedState = sessionStorage.getItem("forecastState");
+      if (savedState) {
+        try {
+          const parsed = JSON.parse(savedState);
+          if (parsed.jobId) setJobId(parsed.jobId);
+          if (parsed.forecastDays) setForecastDays(parsed.forecastDays);
+          if (parsed.transitTime) setTransitTime(parsed.transitTime);
+          if (parsed.orderFor) setOrderFor(parsed.orderFor);
+          if (parsed.stockType) setStockType(parsed.stockType);
+
+          if (parsed.jobId && parsed.showResults) {
+            fetchExistingForecast(parsed.jobId, token);
+          }
+        } catch (e) {
+          console.error("Error parsing saved state:", e);
+        }
+      }
     }
   }, []);
+
+  const fetchExistingForecast = async (savedJobId: string, token: string) => {
+    try {
+      setIsForecasting(true);
+      const res = await fetch(`http://localhost:8080/api/forecast/${savedJobId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setForecastData(data.data || []);
+        setSummaryData(data);
+        setShowResults(true);
+      }
+    } catch (error) {
+      console.error("Error fetching existing forecast:", error);
+    } finally {
+      setIsForecasting(false);
+    }
+  };
 
   const fileTypeMap: Record<string, string> = {
     // "Part Price List": "part-price", // REMOVED file upload for user
@@ -144,6 +186,11 @@ export default function UserDashboard() {
     setUploadMessage("");
     setProgress(0);
 
+    // Clear forecast data when a new file is uploaded
+    setShowResults(false);
+    setForecastData([]);
+    sessionStorage.removeItem("forecastState");
+
     try {
       const fileType = fileTypeMap[activeTab];
 
@@ -175,6 +222,10 @@ export default function UserDashboard() {
         ...prev,
         [activeTab]: data.data.uploadJobId,
       }));
+
+      if (activeTab === "Part Price List") {
+        setPartPriceList(data.data?.data || data.data || []);
+      }
 
       setUploadMessage(data?.message || "Upload successful");
       toast.success(data?.message || "Upload successful");
@@ -223,6 +274,7 @@ export default function UserDashboard() {
     }
 
     const token = localStorage.getItem("accessToken");
+    setIsForecasting(true);
 
     try {
       const res = await fetch(
@@ -254,8 +306,21 @@ export default function UserDashboard() {
       setSummaryData(data);
       setShowResults(true);
 
+      // Store ONLY small data to avoid QuotaExceededError
+      sessionStorage.setItem("forecastState", JSON.stringify({
+        jobId,
+        showResults: true,
+        forecastDays,
+        transitTime,
+        orderFor,
+        stockType
+      }));
+
     } catch (error) {
       console.error("Forecast error:", error);
+      toast.error("Forecast failed");
+    } finally {
+      setIsForecasting(false);
     }
   };
 
@@ -394,7 +459,6 @@ export default function UserDashboard() {
                 key={tab}
                 onClick={() => {
                   setActiveTab(tab);
-                  setShowResults(false);
                   setUploadMessage("");
                 }}
                 className={`text-center px-2 py-3 text-sm font-semibold transition-all duration-200 border-t border-l border-r ${activeTab === tab
@@ -636,9 +700,20 @@ export default function UserDashboard() {
               <div className="mt-8 flex justify-center">
                 <button
                   onClick={handleForecast}
-                  className="px-8 py-2.5 bg-[#1c5ba9] hover:bg-[#154682] active:bg-[#0e2e56] text-white font-semibold rounded shadow-sm hover:shadow transition-all text-sm"
+                  disabled={isForecasting}
+                  className={`px-8 py-2.5 font-semibold rounded shadow-sm hover:shadow transition-all text-sm flex items-center justify-center min-w-[160px] ${isForecasting
+                      ? "bg-gray-400 cursor-not-allowed text-white"
+                      : "bg-[#1c5ba9] hover:bg-[#154682] active:bg-[#0e2e56] text-white"
+                    }`}
                 >
-                  Run Forecast
+                  {isForecasting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Running...
+                    </>
+                  ) : (
+                    "Run Forecast"
+                  )}
                 </button>
               </div>
             </div>
@@ -673,7 +748,9 @@ export default function UserDashboard() {
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">Total Part Quantity:</span>
                   <span className="text-lg font-bold">
-                    {summary?.totalQuantity || 0}
+                    {summaryData?.totalQuantity != null
+                      ? Number(summaryData.totalQuantity).toFixed(2)
+                      : "0.00"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
