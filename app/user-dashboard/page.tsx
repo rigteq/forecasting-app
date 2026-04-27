@@ -15,33 +15,64 @@ type SummaryData = {
   data: any[];
 };
 
-
-export default function Dashboard() {
+export default function UserDashboard() {
   const router = useRouter();
   const [uploadedFileIds, setUploadedFileIds] = useState<Record<string, string>>({});
+  const [forecastData, setForecastData] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isForecasting, setIsForecasting] = useState(false);
+
+  // New state for Part Price List view in User Dashboard
   const [partPriceList, setPartPriceList] = useState<any[]>([]);
+  const [partPriceLoading, setPartPriceLoading] = useState(false);
+  const [partPriceError, setPartPriceError] = useState("");
+
+  const [activeTab, setActiveTab] = useState("Part Price List");
+  const [forecastDays, setForecastDays] = useState("15");
+  const [transitTime, setTransitTime] = useState("5");
+  const [orderFor, setOrderFor] = useState("All Part");
+  const [stockType, setStockType] = useState("Below Safety Stock");
+  const [tabData, setTabData] = useState<Record<string, any>>({});
+  const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [uploadingTab, setUploadingTab] = useState<string | null>(null);
 
-  type ForecastRow = {
-    partNumber: string;
-    partName: string;
-    currentStock: number;
-    avgConsumption: number;
-    daysOfSupply: number;
-    forecastQty: number;
-    unitMrp: number;
-    totalMrp: number;
-    priority: string;
-  };
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
 
-  const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
+    if (!token) {
+      router.replace("/");
+    } else {
+      setLoading(false);
 
+      // Restore state on reload
+      const savedState = sessionStorage.getItem("forecastState");
+      if (savedState) {
+        try {
+          const parsed = JSON.parse(savedState);
+          if (parsed.jobId) setJobId(parsed.jobId);
+          if (parsed.forecastDays) setForecastDays(parsed.forecastDays);
+          if (parsed.transitTime) setTransitTime(parsed.transitTime);
+          if (parsed.orderFor) setOrderFor(parsed.orderFor);
+          if (parsed.stockType) setStockType(parsed.stockType);
 
-  const fetchExistingForecast = React.useCallback(async (savedJobId: string, token: string) => {
+          if (parsed.jobId && parsed.showResults) {
+            fetchExistingForecast(parsed.jobId, token);
+          }
+        } catch (e) {
+          console.error("Error parsing saved state:", e);
+        }
+      }
+    }
+  }, []);
+
+  const fetchExistingForecast = async (savedJobId: string, token: string) => {
     try {
       setIsForecasting(true);
       const res = await fetch(`http://localhost:8080/api/forecast/${savedJobId}`, {
@@ -61,66 +92,9 @@ export default function Dashboard() {
     } finally {
       setIsForecasting(false);
     }
-  }, []);
+  };
 
-
-  useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-
-    if (!token) {
-      router.replace("/");
-      localStorage.clear();
-      sessionStorage.clear();
-      return;
-    }
-
-    setLoading(false);
-
-    const savedState = sessionStorage.getItem("forecastState");
-    if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState || "{}");
-
-        if (parsed.jobId) setJobId(parsed.jobId);
-        if (parsed.forecastDays) setForecastDays(parsed.forecastDays);
-        if (parsed.transitTime) setTransitTime(parsed.transitTime);
-        if (parsed.orderFor) setOrderFor(parsed.orderFor);
-        if (parsed.stockType) setStockType(parsed.stockType);
-
-        if (parsed.jobId && parsed.showResults) {
-          fetchExistingForecast(parsed.jobId, token);
-        }
-      } catch (e) {
-        console.error("Error parsing saved state:", e);
-      }
-    }
-  }, [router, fetchExistingForecast]);
-
-
-  const [activeTab, setActiveTab] = useState("Forecasting");
-  const [forecastDays, setForecastDays] = useState("15");
-  const [transitTime, setTransitTime] = useState("5");
-  const [orderFor, setOrderFor] = useState("All Part");
-  const [stockType, setStockType] = useState("Below Safety Stock");
-  const [tabData, setTabData] = useState<Record<string, File | null>>({});
-  const [showResults, setShowResults] = useState(false);
-
-
-
-  const [uploadMessage, setUploadMessage] = useState("");
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
-
-  type TabName =
-    | "Part Price List"
-    | "No Forecast"
-    | "Current Stock"
-    | "Transit"
-    | "Back Order"
-    | "Quarter Consumption";
-
-  const fileTypeMap: Record<TabName, string> = {
-    "Part Price List": "PART_PRICE",
+  const fileTypeMap: Record<string, string> = {
     "No Forecast": "NO_FORECAST",
     "Current Stock": "CURRENT_STOCK",
     "Transit": "TRANSIT",
@@ -128,26 +102,22 @@ export default function Dashboard() {
     "Quarter Consumption": "CONSUMPTION",
   };
 
-  const uploadTabs = [
-    "Part Price List",
-    "No Forecast",
-    "Current Stock",
-    "Transit",
-    "Back Order",
-    "Quarter Consumption",
-  ] as const;
-
-
   const tabs = [
     "Part Price List",
-    "Current Stock",
     "No Forecast",
+    "Current Stock",
     "Transit",
     "Back Order",
     "Quarter Consumption",
     "Forecasting",
   ];
 
+  // Fetch Part Price List from backend for User Dashboard
+  useEffect(() => {
+    if (activeTab === "Part Price List") {
+      fetchPartPriceList();
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (!jobId || !isUploading) return;
@@ -178,14 +148,56 @@ export default function Dashboard() {
         console.error("Progress fetch error", err);
         clearInterval(interval);
       }
-    }, 500); // every 500ms
+    }, 500);
 
     return () => clearInterval(interval);
   }, [jobId, isUploading]);
 
+  const fetchPartPriceList = async () => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
+
+    setPartPriceLoading(true);
+    setPartPriceError("");
+    try {
+      const res = await fetch("http://localhost:8080/api/part-price/all", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch Part Price List");
+      }
+
+      const data = await res.json();
+      // Ensure we access data array safely depending on standard API wrapper
+      setPartPriceList(data.data || data || []);
+    } catch (err: any) {
+      setPartPriceError(err.message || "Failed to load part price list.");
+    } finally {
+      setPartPriceLoading(false);
+    }
+  };
+
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    if (activeTab === "Part Price List") return; // Upload disabled for this tab
+
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (activeTab === "Quarter Consumption") {
+      const existingFiles = tabData[activeTab] || [];
+      const totalFiles = existingFiles.length + files.length;
+
+      if (totalFiles > 6) {
+        toast.warning("Maximum 6 files allowed");
+        e.target.value = '';
+        return;
+      }
+    }
 
     const token = localStorage.getItem("accessToken");
     if (!token) {
@@ -194,15 +206,15 @@ export default function Dashboard() {
     }
 
     const formData = new FormData();
-    formData.append("file", file);
-
-    const newJobId = jobId || crypto.randomUUID();
-    setJobId(newJobId);
+    files.forEach(f => formData.append("file", f));
 
     // store selected file (UI purpose)
     setTabData((prev) => ({
       ...prev,
-      [activeTab]: file,
+      [activeTab]:
+        activeTab === "Quarter Consumption"
+          ? [...(prev[activeTab] || []), ...files]
+          : files[0],
     }));
 
     setIsUploading(true);
@@ -210,13 +222,17 @@ export default function Dashboard() {
     setUploadMessage("");
     setProgress(0);
 
+
     // Clear forecast data when a new file is uploaded
     setShowResults(false);
     setForecastData([]);
     sessionStorage.removeItem("forecastState");
 
     try {
-      const fileType = fileTypeMap[activeTab as TabName];
+      const fileType = fileTypeMap[activeTab];
+
+      const newJobId = jobId || crypto.randomUUID();
+      setJobId(newJobId);
 
       let url = `http://localhost:8080/api/file/upload/${fileType}?uploadJobId=${newJobId}`;
 
@@ -224,13 +240,17 @@ export default function Dashboard() {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      });
 
+      });
       const data = res.data;
+
+      if (!jobId) {
+        setJobId(data.data.uploadJobId);
+      }
 
       setUploadedFileIds((prev) => ({
         ...prev,
-        [activeTab]: newJobId,
+        [activeTab]: data.data.uploadJobId,
       }));
 
       if (activeTab === "Part Price List") {
@@ -241,27 +261,10 @@ export default function Dashboard() {
       toast.success(data?.message || "Upload successful");
 
     } catch (error: any) {
-      if (error.response) {
-        const status = error.response.status;
-
-        if (status === 409) {
-          toast.error("File already present");
-          setUploadMessage("File already present");
-        } else {
-          const message =
-            error.response.data?.message || "Something went wrong";
-          toast.error(message);
-          setUploadMessage(message);
-        }
-      } else {
-        toast.error("Network error");
-        setUploadMessage("Network error");
-      }
-
-      setProgress(0);
-      setIsUploading(false);
-      // Reset input value to allow uploading the same file again if it was removed
-      e.target.value = '';
+      console.error("Upload error:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Wrong file uploaded";
+      setUploadMessage(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -278,11 +281,13 @@ export default function Dashboard() {
     });
     setUploadMessage("");
     setProgress(0);
+
+
   };
 
   const handleForecast = async () => {
     const requiredTabs = [
-      "Part Price List",
+      // "Part Price List", // REMOVED check, as user doesn't upload this
       "No Forecast",
       "Current Stock",
       "Transit",
@@ -324,10 +329,13 @@ export default function Dashboard() {
 
       const data = await res.json();
 
+      console.log("Forecast Data:", data);
+
       setForecastData(data.data || []);
       setSummaryData(data);
       setShowResults(true);
 
+      // Store ONLY small data to avoid QuotaExceededError
       sessionStorage.setItem("forecastState", JSON.stringify({
         jobId,
         showResults: true,
@@ -412,17 +420,63 @@ export default function Dashboard() {
     a.click();
   };
 
-  useEffect(() => {
-    if (progress === 100) {
-      setTimeout(() => {
-        setProgress(0);
-      }, 2000);
+  const handleRemoveSingleFile = (tab: string, index: number) => {
+    setTabData((prev) => {
+      const updatedFiles = [...(prev[tab] || [])];
+      updatedFiles.splice(index, 1);
+
+      return {
+        ...prev,
+        [tab]: updatedFiles,
+      };
+    });
+
+    // If no files left → remove upload flag
+    if ((tabData[tab]?.length || 0) <= 1) {
+      setUploadedFileIds((prev) => {
+        const updated = { ...prev };
+        delete updated[tab];
+        return updated;
+      });
     }
-  }, [progress]);
+  };
+  const summary = React.useMemo(() => {
+    if (!forecastData || forecastData.length === 0) {
+      return {
+        totalParts: 0,
+        totalQuantity: 0,
+        highPriorityParts: 0,
+        forecastCost: 0,
+      };
+    }
+
+    const totalParts = new Set(forecastData.map(p => p.partNumber)).size;
+
+    const totalQuantity = forecastData.reduce(
+      (sum, item) => sum + (Number(item.forecastQty) || 0),
+      0
+    );
+
+    const forecastCost = forecastData.reduce(
+      (sum, item) => sum + (Number(item.totalMrp) || 0),
+      0
+    );
+
+    const highPriorityParts = forecastData.filter(
+      item => item.priority === "HIGH"
+    ).length;
+
+    return {
+      totalParts,
+      totalQuantity,
+      highPriorityParts,
+      forecastCost,
+    };
+  }, [forecastData]);
 
   return (
     <div className="min-h-screen bg-[#f5f8fa] font-sans text-gray-800 flex flex-col">
-      {/* Header */}
+      {/* Header element, omitted like origin */}
       {/* Main Content Area */}
       <main className="flex-grow p-6 w-full max-w-[1400px] mx-auto flex flex-col gap-6">
 
@@ -446,15 +500,76 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Fills the remaining space to look like the image block */}
           <div className="flex-grow border-b border-gray-300"></div>
         </div>
 
         {/* Tab Content Wrapper */}
         <div className="flex flex-col gap-6">
 
+          {/* User Part Price List Table View */}
+          {activeTab === "Part Price List" && (
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
+                <h2 className="text-lg font-bold text-[#1c5ba9] whitespace-nowrap">Part Price List</h2>
+                {!partPriceLoading && !partPriceError && (
+                  <div className="flex items-center">
+                    <span className="text-sm font-semibold text-gray-700 bg-blue-50 border border-blue-100 px-3 py-1 rounded-md">
+                      Total Records: {partPriceList.length}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {partPriceLoading ? (
+                <div className="text-center py-10">
+                  <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent border-solid rounded-full animate-spin"></div>
+                  <p className="mt-4 text-gray-600 font-medium">Loading Part Prices...</p>
+                </div>
+              ) : partPriceError ? (
+                <div className="text-center py-10 text-red-500 font-medium">
+                  {partPriceError}
+                </div>
+              ) : (
+                <div className="overflow-x-auto border-x border-b border-gray-300 rounded-lg max-h-[500px]">
+                  <table className="w-full text-sm text-left border border-gray-300">
+                    <thead className="bg-[#f0f4f8] text-gray-700 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 border-b border-gray-300">Part Number</th>
+                        <th className="px-4 py-3 border-b border-gray-300">Part Name</th>
+                        <th className="px-4 py-3 border-b border-gray-300 text-right">Unit MRP</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {partPriceList.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="text-center py-8 text-gray-500">
+                            No part prices available
+                          </td>
+                        </tr>
+                      ) : (
+                        partPriceList.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50 border-b border-gray-200 last:border-0">
+                            <td className="px-4 py-2 border-r border-gray-300">
+                              {item.partNumber || item.partNo || item.part_number || "-"}
+                            </td>
+                            <td className="px-4 py-2 border-r border-gray-300">
+                              {item.partName || item.part_name || "-"}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              {item.mrp !== undefined && item.mrp !== null ? item.mrp : "-"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Warning Message Box + Upload UI */}
-          {activeTab !== "Forecasting" && (
+          {activeTab !== "Forecasting" && activeTab !== "Part Price List" && (
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 flex flex-col gap-5">
 
               {/* Warning */}
@@ -483,13 +598,14 @@ export default function Dashboard() {
                   Choose File
                   <input
                     type="file"
+                    multiple={activeTab === "Quarter Consumption"}
                     className="hidden"
                     onChange={handleFileChange}
                     disabled={isUploading}
                   />
                 </label>
 
-                {uploadingTab === activeTab && (isUploading || progress === 100) && (
+                {isUploading && uploadingTab === activeTab && (
                   <div className="mt-4 w-full max-w-md">
                     <div className="flex justify-between text-sm text-blue-600 mb-1 font-medium">
                       <span>
@@ -498,24 +614,43 @@ export default function Dashboard() {
                         {progress === 100 && "Completed"}
                       </span>
                     </div>
+
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      />
                     </div>
                   </div>
                 )}
 
                 {tabData[activeTab] && !isUploading && (
                   <div className="mt-4 w-full max-w-md flex flex-col gap-2">
-                    <div className="flex items-center justify-between bg-white border border-gray-200 px-3 py-2 rounded-md shadow-sm">
-                      <span className="text-sm text-gray-700 truncate max-w-[80%]">{(tabData[activeTab] as File).name}</span>
-                      <button
-                        onClick={() => handleRemoveFile(activeTab)}
-                        className="text-red-500 hover:text-red-700 p-1 transition-colors"
-                        title="Remove file"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
+                    {Array.isArray(tabData[activeTab]) ? (
+                      tabData[activeTab].map((file: File, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between bg-white border border-gray-200 px-3 py-2 rounded-md shadow-sm">
+                          <span className="text-sm text-gray-700 truncate max-w-[80%]">{file.name}</span>
+                          <button
+                            onClick={() => handleRemoveSingleFile(activeTab, idx)}
+                            className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                            title="Remove file"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-between bg-white border border-gray-200 px-3 py-2 rounded-md shadow-sm">
+                        <span className="text-sm text-gray-700 truncate max-w-[80%]">{(tabData[activeTab] as File).name}</span>
+                        <button
+                          onClick={() => handleRemoveFile(activeTab)}
+                          className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                          title="Remove file"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -643,7 +778,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">Total Part No.:</span>
                   <span className="text-lg font-bold">
-                    {summaryData?.totalPartNo ?? 0}
+                    {summary?.totalParts || 0}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -657,12 +792,11 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <span className="text-blue-100">High Priority Parts:</span>
                   <span className="text-lg font-bold">
-                    {summaryData?.highPriorityParts ?? 0}
+                    {summary?.highPriorityParts || 0}
                   </span>
                 </div>
               </div>
 
-              {/* Results Table */}
               {/* Results Table */}
               <div className="border-x border-b border-gray-300 rounded-b-lg">
 
@@ -712,6 +846,7 @@ export default function Dashboard() {
 
                 </div>
               </div>
+
               {/* Action Buttons */}
               <div className="flex justify-center gap-4 mt-8">
                 <button
