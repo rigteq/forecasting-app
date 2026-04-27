@@ -36,10 +36,12 @@ export default function UserDashboard() {
   const [tabData, setTabData] = useState<Record<string, any>>({});
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const [uploadMessage, setUploadMessage] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
+  const [uploadingTab, setUploadingTab] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -93,12 +95,11 @@ export default function UserDashboard() {
   };
 
   const fileTypeMap: Record<string, string> = {
-    // "Part Price List": "part-price", // REMOVED file upload for user
-    "No Forecast": "no-forecast",
-    "Current Stock": "current-stock",
-    "Transit": "transit",
-    "Back Order": "backorder",
-    "Quarter Consumption": "consumption",
+    "No Forecast": "NO_FORECAST",
+    "Current Stock": "CURRENT_STOCK",
+    "Transit": "TRANSIT",
+    "Back Order": "BACKORDER",
+    "Quarter Consumption": "CONSUMPTION",
   };
 
   const tabs = [
@@ -117,6 +118,40 @@ export default function UserDashboard() {
       fetchPartPriceList();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!jobId || !isUploading) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+
+        const res = await axios.get(
+          `http://localhost:8080/api/file/upload/progress/${jobId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const backendProgress = res.data;
+
+        setProgress(backendProgress);
+
+        if (backendProgress >= 100) {
+          clearInterval(interval);
+          setIsUploading(false);
+          setUploadingTab(null);
+        }
+      } catch (err) {
+        console.error("Progress fetch error", err);
+        clearInterval(interval);
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [jobId, isUploading]);
 
   const fetchPartPriceList = async () => {
     const token = localStorage.getItem("accessToken");
@@ -183,8 +218,10 @@ export default function UserDashboard() {
     }));
 
     setIsUploading(true);
+    setUploadingTab(activeTab);
     setUploadMessage("");
     setProgress(0);
+
 
     // Clear forecast data when a new file is uploaded
     setShowResults(false);
@@ -194,24 +231,17 @@ export default function UserDashboard() {
     try {
       const fileType = fileTypeMap[activeTab];
 
-      let url = `http://localhost:8080/api/file/upload/${fileType}`;
+      const newJobId = jobId || crypto.randomUUID();
+      setJobId(newJobId);
 
-      if (jobId) {
-        url += `?uploadJobId=${encodeURIComponent(jobId)}`;
-      }
+      let url = `http://localhost:8080/api/file/upload/${fileType}?uploadJobId=${newJobId}`;
 
       const res = await axios.post(url, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setProgress(percentCompleted);
-          }
-        },
-      });
 
+      });
       const data = res.data;
 
       if (!jobId) {
@@ -235,9 +265,6 @@ export default function UserDashboard() {
       const errorMessage = error.response?.data?.message || error.message || "Wrong file uploaded";
       setUploadMessage(errorMessage);
       toast.error(errorMessage);
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
     }
   };
 
@@ -254,6 +281,8 @@ export default function UserDashboard() {
     });
     setUploadMessage("");
     setProgress(0);
+
+
   };
 
   const handleForecast = async () => {
@@ -576,14 +605,21 @@ export default function UserDashboard() {
                   />
                 </label>
 
-                {isUploading && (
+                {isUploading && uploadingTab === activeTab && (
                   <div className="mt-4 w-full max-w-md">
                     <div className="flex justify-between text-sm text-blue-600 mb-1 font-medium">
-                      <span>Uploading...</span>
-                      <span>{progress}%</span>
+                      <span>
+                        {progress === 0 && "Starting..."}
+                        {progress > 0 && progress < 100 && `${progress}% uploading...`}
+                        {progress === 100 && "Completed"}
+                      </span>
                     </div>
+
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      />
                     </div>
                   </div>
                 )}

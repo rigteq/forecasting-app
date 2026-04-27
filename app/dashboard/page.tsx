@@ -19,42 +19,29 @@ type SummaryData = {
 export default function Dashboard() {
   const router = useRouter();
   const [uploadedFileIds, setUploadedFileIds] = useState<Record<string, string>>({});
-  const [forecastData, setForecastData] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isForecasting, setIsForecasting] = useState(false);
   const [partPriceList, setPartPriceList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploadingTab, setUploadingTab] = useState<string | null>(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem("accessToken");
+  type ForecastRow = {
+    partNumber: string;
+    partName: string;
+    currentStock: number;
+    avgConsumption: number;
+    daysOfSupply: number;
+    forecastQty: number;
+    unitMrp: number;
+    totalMrp: number;
+    priority: string;
+  };
 
-    if (!token) {
-      router.replace("/");
-    } else {
-      setLoading(false);
-      
-      // Restore state on reload
-      const savedState = sessionStorage.getItem("forecastState");
-      if (savedState) {
-        try {
-          const parsed = JSON.parse(savedState);
-          if (parsed.jobId) setJobId(parsed.jobId);
-          if (parsed.forecastDays) setForecastDays(parsed.forecastDays);
-          if (parsed.transitTime) setTransitTime(parsed.transitTime);
-          if (parsed.orderFor) setOrderFor(parsed.orderFor);
-          if (parsed.stockType) setStockType(parsed.stockType);
-          
-          if (parsed.jobId && parsed.showResults) {
-            fetchExistingForecast(parsed.jobId, token);
-          }
-        } catch (e) {
-          console.error("Error parsing saved state:", e);
-        }
-      }
-    }
-  }, []);
+  const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
 
-  const fetchExistingForecast = async (savedJobId: string, token: string) => {
+
+  const fetchExistingForecast = React.useCallback(async (savedJobId: string, token: string) => {
     try {
       setIsForecasting(true);
       const res = await fetch(`http://localhost:8080/api/forecast/${savedJobId}`, {
@@ -74,7 +61,40 @@ export default function Dashboard() {
     } finally {
       setIsForecasting(false);
     }
-  };
+  }, []);
+
+
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+
+    if (!token) {
+      router.replace("/");
+      localStorage.clear();
+      sessionStorage.clear();
+      return;
+    }
+
+    setLoading(false);
+
+    const savedState = sessionStorage.getItem("forecastState");
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState || "{}");
+
+        if (parsed.jobId) setJobId(parsed.jobId);
+        if (parsed.forecastDays) setForecastDays(parsed.forecastDays);
+        if (parsed.transitTime) setTransitTime(parsed.transitTime);
+        if (parsed.orderFor) setOrderFor(parsed.orderFor);
+        if (parsed.stockType) setStockType(parsed.stockType);
+
+        if (parsed.jobId && parsed.showResults) {
+          fetchExistingForecast(parsed.jobId, token);
+        }
+      } catch (e) {
+        console.error("Error parsing saved state:", e);
+      }
+    }
+  }, [router, fetchExistingForecast]);
 
 
   const [activeTab, setActiveTab] = useState("Forecasting");
@@ -84,26 +104,44 @@ export default function Dashboard() {
   const [stockType, setStockType] = useState("Below Safety Stock");
   const [tabData, setTabData] = useState<Record<string, File | null>>({});
   const [showResults, setShowResults] = useState(false);
-  const [loading, setLoading] = useState(true);
+
 
 
   const [uploadMessage, setUploadMessage] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
 
-  const fileTypeMap: Record<string, string> = {
-    "Part Price List": "part-price",
-    "No Forecast": "no-forecast",
-    "Current Stock": "current-stock",
-    "Transit": "transit",
-    "Back Order": "backorder",
-    "Quarter Consumption": "consumption",
+  type TabName =
+    | "Part Price List"
+    | "No Forecast"
+    | "Current Stock"
+    | "Transit"
+    | "Back Order"
+    | "Quarter Consumption";
+
+  const fileTypeMap: Record<TabName, string> = {
+    "Part Price List": "PART_PRICE",
+    "No Forecast": "NO_FORECAST",
+    "Current Stock": "CURRENT_STOCK",
+    "Transit": "TRANSIT",
+    "Back Order": "BACKORDER",
+    "Quarter Consumption": "CONSUMPTION",
   };
 
-  const tabs = [
+  const uploadTabs = [
     "Part Price List",
     "No Forecast",
     "Current Stock",
+    "Transit",
+    "Back Order",
+    "Quarter Consumption",
+  ] as const;
+
+
+  const tabs = [
+    "Part Price List",
+    "Current Stock",
+    "No Forecast",
     "Transit",
     "Back Order",
     "Quarter Consumption",
@@ -111,7 +149,39 @@ export default function Dashboard() {
   ];
 
 
+  useEffect(() => {
+    if (!jobId || !isUploading) return;
 
+    const interval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+
+        const res = await axios.get(
+          `http://localhost:8080/api/file/upload/progress/${jobId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const backendProgress = res.data;
+
+        setProgress(backendProgress);
+
+        if (backendProgress >= 100) {
+          clearInterval(interval);
+          setIsUploading(false);
+          setUploadingTab(null);
+        }
+      } catch (err) {
+        console.error("Progress fetch error", err);
+        clearInterval(interval);
+      }
+    }, 500); // every 500ms
+
+    return () => clearInterval(interval);
+  }, [jobId, isUploading]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -126,6 +196,9 @@ export default function Dashboard() {
     const formData = new FormData();
     formData.append("file", file);
 
+    const newJobId = jobId || crypto.randomUUID();
+    setJobId(newJobId);
+
     // store selected file (UI purpose)
     setTabData((prev) => ({
       ...prev,
@@ -133,46 +206,31 @@ export default function Dashboard() {
     }));
 
     setIsUploading(true);
+    setUploadingTab(activeTab);
     setUploadMessage("");
     setProgress(0);
-    
+
     // Clear forecast data when a new file is uploaded
     setShowResults(false);
     setForecastData([]);
     sessionStorage.removeItem("forecastState");
 
     try {
-      const fileType = fileTypeMap[activeTab];
+      const fileType = fileTypeMap[activeTab as TabName];
 
-      let url = `http://localhost:8080/api/file/upload/${fileType}`;
-
-      if (jobId) {
-        url += `?uploadJobId=${encodeURIComponent(jobId)}`;
-      }
+      let url = `http://localhost:8080/api/file/upload/${fileType}?uploadJobId=${newJobId}`;
 
       const res = await axios.post(url, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            setProgress(percentCompleted);
-          }
-        },
       });
 
       const data = res.data;
 
-      if (!jobId) {
-        setJobId(data.data.uploadJobId);
-      }
-
       setUploadedFileIds((prev) => ({
         ...prev,
-        [activeTab]: data.data.uploadJobId,
+        [activeTab]: newJobId,
       }));
 
       if (activeTab === "Part Price List") {
@@ -201,7 +259,6 @@ export default function Dashboard() {
       }
 
       setProgress(0);
-    } finally {
       setIsUploading(false);
       // Reset input value to allow uploading the same file again if it was removed
       e.target.value = '';
@@ -267,15 +324,10 @@ export default function Dashboard() {
 
       const data = await res.json();
 
-      console.log("Forecast Data:", data);
-      console.log("FULL API RESPONSE ", data);
-      console.log("TOTAL QTY FROM BACKEND ", data.totalQuantity);
-
       setForecastData(data.data || []);
       setSummaryData(data);
       setShowResults(true);
-      
-      // Store ONLY small data to avoid QuotaExceededError
+
       sessionStorage.setItem("forecastState", JSON.stringify({
         jobId,
         showResults: true,
@@ -360,6 +412,14 @@ export default function Dashboard() {
     a.click();
   };
 
+  useEffect(() => {
+    if (progress === 100) {
+      setTimeout(() => {
+        setProgress(0);
+      }, 2000);
+    }
+  }, [progress]);
+
   return (
     <div className="min-h-screen bg-[#f5f8fa] font-sans text-gray-800 flex flex-col">
       {/* Header */}
@@ -429,11 +489,14 @@ export default function Dashboard() {
                   />
                 </label>
 
-                {isUploading && (
+                {uploadingTab === activeTab && (isUploading || progress === 100) && (
                   <div className="mt-4 w-full max-w-md">
                     <div className="flex justify-between text-sm text-blue-600 mb-1 font-medium">
-                      <span>Uploading...</span>
-                      <span>{progress}%</span>
+                      <span>
+                        {progress === 0 && "Starting..."}
+                        {progress > 0 && progress < 100 && `${progress}% uploading...`}
+                        {progress === 100 && "Completed"}
+                      </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
                       <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
@@ -539,11 +602,10 @@ export default function Dashboard() {
                 <button
                   onClick={handleForecast}
                   disabled={isForecasting}
-                  className={`px-8 py-2.5 font-semibold rounded shadow-sm hover:shadow transition-all text-sm flex items-center justify-center min-w-[160px] ${
-                    isForecasting
-                      ? "bg-gray-400 cursor-not-allowed text-white"
-                      : "bg-[#1c5ba9] hover:bg-[#154682] active:bg-[#0e2e56] text-white"
-                  }`}
+                  className={`px-8 py-2.5 font-semibold rounded shadow-sm hover:shadow transition-all text-sm flex items-center justify-center min-w-[160px] ${isForecasting
+                    ? "bg-gray-400 cursor-not-allowed text-white"
+                    : "bg-[#1c5ba9] hover:bg-[#154682] active:bg-[#0e2e56] text-white"
+                    }`}
                 >
                   {isForecasting ? (
                     <>

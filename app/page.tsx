@@ -170,7 +170,7 @@ export default function Login() {
               {isSignup ? "Sign Up" : "Login"}
             </button>
 
-            {/* <p className="text-sm text-center text-gray-600">
+            <p className="text-sm text-center text-gray-600">
               {isSignup ? "Already have an account?" : "Don't have an account?"}
               <span
                 onClick={() => setIsSignup(!isSignup)}
@@ -178,7 +178,7 @@ export default function Login() {
               >
                 {isSignup ? "Login" : "Sign Up"}
               </span>
-            </p> */}
+            </p>
 
           </form>
         </div>
