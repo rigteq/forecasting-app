@@ -39,13 +39,18 @@ export default function ClientsPage() {
               <Users size={20} />
               Design Clients List
             </h2>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-              <input 
-                type="text" 
-                placeholder="Search clients..." 
-                className="pl-10 pr-4 py-2 border border-blue-100 bg-gray-50 font-semibold rounded focus:ring-1 focus:ring-[#1c5ba9]/30 focus:outline-none transition-all text-sm w-64" 
-              />
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Search clients..." 
+                  className="pl-10 pr-4 py-2 border border-blue-100 bg-gray-50 font-semibold rounded focus:ring-1 focus:ring-[#1c5ba9]/30 focus:outline-none transition-all text-sm w-64" 
+                />
+              </div>
+              <button className="px-4 py-2 bg-[#1c5ba9] hover:bg-[#154682] text-white text-sm font-bold rounded shadow-sm transition-colors uppercase tracking-wide">
+                + Add Client
+              </button>
             </div>
           </div>
 
