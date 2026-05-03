@@ -225,68 +225,151 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
   if (showResults) {
     return (
-      <div className="flex-1 flex flex-col h-[90vh] bg-gray-50 overflow-hidden w-full max-w-7xl mx-auto rounded-lg shadow mt-4">
-        <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
+      <div className="flex flex-col h-[90vh] bg-gray-50 w-full max-w-7xl mx-auto mt-4 rounded-xl overflow-hidden shadow">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 bg-white border-b">
           <button
             onClick={() => setShowResults(false)}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+            className="flex items-center gap-2 text-gray-600 hover:text-black font-medium"
           >
-            <ArrowLeft size={20} /> Back to Dashboard
+            <ArrowLeft size={18} /> Back
           </button>
 
-          <div className="flex gap-3">
-            <button onClick={() => handleDownload("excel")} className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium">
-              <FileSpreadsheet size={16} /> Excel
+          <h2 className="text-xl font-semibold text-gray-800">
+            Forecast Results
+          </h2>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleDownload("excel")}
+              className="px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600"
+            >
+              Excel
             </button>
-            <button onClick={() => handleDownload("csv")} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium">
-              <FileSpreadsheet size={16} /> CSV
+            <button
+              onClick={() => handleDownload("csv")}
+              className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+            >
+              CSV
             </button>
-            <button onClick={() => handleDownload("pdf")} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium">
-              <Download size={16} /> PDF
+            <button
+              onClick={() => handleDownload("pdf")}
+              className="px-3 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
+            >
+              PDF
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 lg:p-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm text-left whitespace-nowrap">
-              <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-semibold sticky top-0 shadow-sm z-10">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6">
+          <div className="bg-white p-4 rounded-xl shadow-sm border">
+            <p className="text-xs text-gray-500">Total Parts</p>
+            <h2 className="text-xl font-bold">{summaryData?.totalPartNo || 0}</h2>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl shadow-sm border">
+            <p className="text-xs text-gray-500">Total Quantity</p>
+            <h2 className="text-xl font-bold text-blue-600">
+              {summaryData?.totalQuantity || 0}
+            </h2>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl shadow-sm border">
+            <p className="text-xs text-gray-500">Forecast Cost</p>
+            <h2 className="text-xl font-bold text-green-600">
+              ₹{summaryData?.forecastCost?.toLocaleString() || 0}
+            </h2>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl shadow-sm border">
+            <p className="text-xs text-gray-500">High Priority</p>
+            <h2 className="text-xl font-bold text-red-600">
+              {summaryData?.highPriorityParts || 0}
+            </h2>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 overflow-auto px-6 pb-6">
+          <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 text-gray-600 text-xs uppercase sticky top-0">
                 <tr>
-                  <th className="px-6 py-4">Part No</th>
-                  <th className="px-6 py-4">Part Name</th>
-                  <th className="px-6 py-4 text-right">Current Stock</th>
-                  <th className="px-6 py-4 text-right">Avg Cons.</th>
-                  <th className="px-6 py-4 text-right">Days Supply</th>
-                  <th className="px-6 py-4 text-right">Transit Days</th>
-                  <th className="px-6 py-4 text-right">Forecast Qty</th>
-                  <th className="px-6 py-4 text-right">Unit MRP</th>
-                  <th className="px-6 py-4 text-right">Total MRP</th>
-                  <th className="px-6 py-4 text-center">Priority</th>
+                  <th className="px-4 py-3 text-left">Part No</th>
+                  <th className="px-4 py-3 text-left">Part Name</th>
+                  <th className="px-4 py-3 text-right">Stock</th>
+                  <th className="px-4 py-3 text-right">Avg</th>
+                  <th className="px-4 py-3 text-right">Supply</th>
+                  <th className="px-4 py-3 text-right">Transit</th>
+                  <th className="px-4 py-3 text-right">Forecast</th>
+                  <th className="px-4 py-3 text-right">Unit ₹</th>
+                  <th className="px-4 py-3 text-right">Total ₹</th>
+                  <th className="px-4 py-3 text-center">Priority</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+
+              <tbody>
                 {forecastData.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-6 py-10 text-center text-gray-500">No data available</td>
+                    <td colSpan={10} className="text-center py-10 text-gray-400">
+                      No data available
+                    </td>
                   </tr>
                 ) : (
                   forecastData.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
-                      <td className="px-6 py-3 font-medium">{item.partNumber || item.partNo || '-'}</td>
-                      <td className="px-6 py-3 truncate max-w-[200px]">{item.partName || '-'}</td>
-                      <td className="px-6 py-3 text-right text-gray-600">{item.currentStock || 0}</td>
-                      <td className="px-6 py-3 text-right text-gray-600">{item.avgConsumption || 0}</td>
-                      <td className="px-6 py-3 text-right text-gray-600">{item.daysOfSupply || 0}</td>
-                      <td className="px-6 py-3 text-right text-gray-600">{item.transitDays || transitTime}</td>
-                      <td className="px-6 py-3 text-right font-semibold text-blue-600">{item.forecastQty || 0}</td>
-                      <td className="px-6 py-3 text-right text-gray-600">₹{item.unitMrp || 0}</td>
-                      <td className="px-6 py-3 text-right font-semibold text-gray-800">₹{item.totalMrp || 0}</td>
-                      <td className="px-6 py-3 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.priority === 'A' || item.priority === 'HIGH' ? 'bg-red-100 text-red-700' :
-                          item.priority === 'B' || item.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-green-100 text-green-700'
-                          }`}>
-                          {item.priority || 'C'}
+                    <tr
+                      key={idx}
+                      className="border-t hover:bg-blue-50 transition"
+                    >
+                      <td className="px-4 py-3 font-medium">
+                        {item.partNumber || "-"}
+                      </td>
+
+                      <td className="px-4 py-3 max-w-[200px] truncate">
+                        {item.partName || "-"}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {item.currentStock || 0}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {item.avgConsumption || 0}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {item.daysOfSupply || 0}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {item.transitDays || transitTime}
+                      </td>
+
+                      <td className="px-4 py-3 text-right font-bold text-blue-600">
+                        {item.forecastQty || 0}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        ₹{item.unitMrp || 0}
+                      </td>
+
+                      <td className="px-4 py-3 text-right font-semibold">
+                        ₹{item.totalMrp || 0}
+                      </td>
+
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full font-semibold ${item.priority === "HIGH"
+                            ? "bg-red-100 text-red-600"
+                            : item.priority === "MEDIUM"
+                              ? "bg-yellow-100 text-yellow-600"
+                              : "bg-green-100 text-green-600"
+                            }`}
+                        >
+                          {item.priority || "LOW"}
                         </span>
                       </td>
                     </tr>
@@ -294,6 +377,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
                 )}
               </tbody>
             </table>
+
           </div>
         </div>
       </div>
