@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   title: "Vardhan Enterprises - Forecasting Application",
   description: "Forecasting and Inventory Management Dashboard",
   icons: {
-    icon: "/velogo.png",
+    icon: "/vefav.ico",
   },
 };
 
