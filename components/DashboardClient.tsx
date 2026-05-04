@@ -25,7 +25,6 @@ type FileConfig = {
 };
 
 const CARDS_CONFIG: FileConfig[] = [
-  { id: "Part Price List", title: "Part Price List", requiredForForecast: false, adminOnly: true, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "PART_PRICE", helpText: "Optional. 1 File" },
   { id: "No Forecast", title: "No Forecast", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "NO_FORECAST", helpText: "Required. 1 File" },
   { id: "Current Stock", title: "Current Stock", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CURRENT_STOCK", helpText: "Required. 1 File" },
   { id: "Transit", title: "Transit", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "TRANSIT", helpText: "Required. 1 File" },
@@ -361,9 +360,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
                     <span className="text-[11px] font-medium">Uploading {uploadProgress[config.id]}%</span>
                   </div>
                 ) : files.length > 0 ? (
-                  <div className="w-full flex flex-col gap-1.5 max-h-full overflow-auto z-10">
+                  <div className="w-full flex flex-col gap-1.5 max-h-[140px] overflow-y-auto px-1 z-10 custom-scrollbar">
                     {files.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-white border border-gray-200 p-1.5 rounded shadow-sm text-xs">
+                      <div key={idx} className="flex items-center justify-between bg-white border border-gray-200 p-1.5 rounded shadow-sm text-xs shrink-0">
                         <span className="truncate flex-1 text-gray-700 pr-2">{file.name}</span>
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveSingleFile(config.id, idx); }}
@@ -374,8 +373,8 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
                       </div>
                     ))}
                     {config.multiple && files.length < 6 && (
-                      <div className="text-center mt-1 pointer-events-none">
-                        <span className="text-[#1c5ba9] text-[10px] font-semibold underline">Add more</span>
+                      <div className="text-center mt-1 pointer-events-none shrink-0">
+                        <span className="text-[#1c5ba9] text-[10px] font-semibold underline">Add more ({files.length}/6)</span>
                       </div>
                     )}
                   </div>
@@ -394,52 +393,53 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
       {/* Sticky Controls Footer */}
       <div className="flex-shrink-0 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky bottom-0 z-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Forecasting Days</label>
-            <select
-              value={forecastDays}
-              onChange={(e) => setForecastDays(e.target.value)}
-              disabled={role !== "ADMIN"}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none disabled:opacity-60 disabled:bg-gray-100"
-            >
-              <option value="7">7 Days</option>
-              <option value="10">10 Days</option>
-              <option value="15">15 Days</option>
-              <option value="21">21 Days</option>
-            </select>
-          </div>
+        <div className={`grid gap-4 items-end ${role === "ADMIN" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 justify-center max-w-md mx-auto"}`}>
+          {role === "ADMIN" && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Forecasting Days</label>
+                <select
+                  value={forecastDays}
+                  onChange={(e) => setForecastDays(e.target.value)}
+                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none disabled:opacity-60 disabled:bg-gray-100"
+                >
+                  <option value="7">7 Days</option>
+                  <option value="10">10 Days</option>
+                  <option value="15">15 Days</option>
+                  <option value="21">21 Days</option>
+                </select>
+              </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Transit Time</label>
-            <select
-              value={transitTime}
-              onChange={(e) => setTransitTime(e.target.value)}
-              disabled={role !== "ADMIN"}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none disabled:opacity-60 disabled:bg-gray-100"
-            >
-              <option value="3">3 Days</option>
-              <option value="5">5 Days</option>
-              <option value="7">7 Days</option>
-              <option value="10">10 Days</option>
-            </select>
-          </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Transit Time</label>
+                <select
+                  value={transitTime}
+                  onChange={(e) => setTransitTime(e.target.value)}
+                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none disabled:opacity-60 disabled:bg-gray-100"
+                >
+                  <option value="3">3 Days</option>
+                  <option value="5">5 Days</option>
+                  <option value="7">7 Days</option>
+                  <option value="10">10 Days</option>
+                </select>
+              </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order For</label>
-            <select
-              value={orderFor}
-              onChange={(e) => setOrderFor(e.target.value)}
-              disabled={role !== "ADMIN"}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none disabled:opacity-60 disabled:bg-gray-100"
-            >
-              <option value="All">All</option>
-              <option value="Workshop">Workshop</option>
-              <option value="Counter">Counter</option>
-            </select>
-          </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order For</label>
+                <select
+                  value={orderFor}
+                  onChange={(e) => setOrderFor(e.target.value)}
+                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none disabled:opacity-60 disabled:bg-gray-100"
+                >
+                  <option value="All">All</option>
+                  <option value="Workshop">Workshop</option>
+                  <option value="Counter">Counter</option>
+                </select>
+              </div>
+            </>
+          )}
 
-          <div className="flex items-end h-full w-full">
+          <div className={`flex items-end h-full w-full ${role !== "ADMIN" ? "justify-center" : ""}`}>
             <button
               onClick={handleForecast}
               disabled={!allRequiredUploaded || isForecasting}
