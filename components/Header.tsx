@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { User, Users, LogOut, ChevronDown, FileText, History } from "lucide-react";
+import { User, Users, LogOut, ChevronDown, FileText, History, CreditCard, IndianRupee } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function Header() {
@@ -90,15 +90,34 @@ export default function Header() {
             </Link>
 
             {isAdmin && (
-              <Link
-                href="/dashboard/clients"
-                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-[#1c5ba9] transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                <Users size={16} className="text-gray-400" />
-                <span className="font-semibold">Clients</span>
-              </Link>
+              <>
+                <Link
+                  href="/dashboard/clients"
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-[#1c5ba9] transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Users size={16} className="text-gray-400" />
+                  <span className="font-semibold">Clients</span>
+                </Link>
+                <Link
+                  href="/dashboard/part-price-list"
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-[#1c5ba9] transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <FileText size={16} className="text-gray-400" />
+                  <span className="font-semibold">Part Price List</span>
+                </Link>
+              </>
             )}
+
+            <Link
+              href="/dashboard/billing"
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-[#1c5ba9] transition-colors"
+              onClick={() => setIsOpen(false)}
+            >
+              <CreditCard size={16} className="text-gray-400" />
+              <span className="font-semibold">Billing & Subscriptions</span>
+            </Link>
 
             <Link
               href="/dashboard/reports"

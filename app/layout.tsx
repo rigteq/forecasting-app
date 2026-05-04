@@ -18,6 +18,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Vardhan Enterprises - Forecasting Application",
   description: "Forecasting and Inventory Management Dashboard",
+  icons: {
+    icon: "/velogo.png",
+  },
 };
 
 export default function RootLayout({
