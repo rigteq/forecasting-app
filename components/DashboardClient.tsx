@@ -41,8 +41,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const [uploadingState, setUploadingState] = useState<Record<string, boolean>>({});
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
-  const [forecastDays, setForecastDays] = useState("15");
-  const [transitTime, setTransitTime] = useState("5");
+  const [forecastDays, setForecastDays] = useState<string>("7");
+const [transitTime, setTransitTime] = useState<string>("5");
+
   const [orderFor, setOrderFor] = useState("All");
   const [stockType, setStockType] = useState("Below Safety Stock");
 
@@ -53,6 +54,41 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [forecastError, setForecastError] = useState("");
+  const [downloadingType, setDownloadingType] = useState<string | null>(null);
+
+  useEffect(() => {
+  const fetchUserConfig = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+
+      const res = await axios.get(
+        "http://localhost:8080/api/auth/user/config",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = res.data;
+
+if (data) {
+  setForecastDays(String(data.forecastDays ?? "7"));
+  setTransitTime(String(data.transitTime ?? "5"));
+} else {
+  setForecastDays("7");
+  setTransitTime("5");
+}
+
+    } catch (err) {
+      console.error("Failed to load config", err);
+
+      // fallback values (VERY IMPORTANT)
+       setForecastDays("7");
+  setTransitTime("5");
+    }
+  };
+
+  fetchUserConfig();
+}, []);
 
   const handleFileChange = async (cardId: string, typeMap: string, multiple: boolean, files: File[]) => {
     if (files.length === 0) return;
@@ -190,6 +226,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const handleDownload = async (type: string) => {
     if (!jobId) return;
     const token = localStorage.getItem("accessToken");
+    setDownloadingType(type); 
     try {
       const res = await fetch(`http://localhost:8080/api/download/${type}/${jobId}`, {
         method: "POST",
@@ -214,7 +251,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
       a.click();
     } catch (err) {
       toast.error("Download failed");
-    }
+    } finally {
+    setDownloadingType(null); // stop loader
+  }
   };
 
   const allRequiredUploaded = CARDS_CONFIG.filter(c => {
@@ -224,8 +263,8 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
   if (showResults) {
     return (
-      <div className="flex-1 flex flex-col h-[90vh] bg-gray-50 overflow-hidden w-full max-w-7xl mx-auto rounded-lg shadow mt-4">
-        <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
+     <div className="bg-gray-50 w-full max-w-7xl mx-auto rounded-lg shadow mt-4 h-[calc(100vh-120px)] overflow-hidden flex flex-col">
+         <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
           <button
             onClick={() => setShowResults(false)}
             className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
@@ -234,60 +273,145 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
           </button>
 
           <div className="flex gap-3">
-            <button onClick={() => handleDownload("excel")} className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium">
-              <FileSpreadsheet size={16} /> Excel
-            </button>
-            <button onClick={() => handleDownload("csv")} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium">
-              <FileSpreadsheet size={16} /> CSV
-            </button>
-            <button onClick={() => handleDownload("pdf")} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium">
-              <Download size={16} /> PDF
-            </button>
-          </div>
+
+                {/* Excel */}
+                <button
+                  onClick={() => handleDownload("excel")}
+                  disabled={downloadingType !== null}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium disabled:opacity-60"
+                >
+                  {downloadingType === "excel" ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <FileSpreadsheet size={16} /> Excel
+                    </>
+                  )}
+                </button>
+
+                {/* CSV */}
+                <button
+                  onClick={() => handleDownload("csv")}
+                  disabled={downloadingType !== null}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium disabled:opacity-60"
+                >
+                  {downloadingType === "csv" ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <FileSpreadsheet size={16} /> CSV
+                    </>
+                  )}
+                </button>
+
+                {/* PDF */}
+                <button
+                  onClick={() => handleDownload("pdf")}
+                  disabled={downloadingType !== null}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium disabled:opacity-60"
+                >
+                  {downloadingType === "pdf" ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} /> PDF
+                    </>
+                  )}
+                </button>
+
+              </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 lg:p-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm text-left whitespace-nowrap">
-              <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-semibold sticky top-0 shadow-sm z-10">
+        <div className="p-4 lg:p-6 flex-1 overflow-hidden">
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+
+   <div className="overflow-y-auto h-[calc(100vh-240px)] rounded-xl">
+              <table className="w-full text-xs text-left table-fixed">
+    
+              {/* HEADER */}
+              <thead className="bg-gray-100 text-gray-700 uppercase text-[10px] font-semibold sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-4">Part No</th>
-                  <th className="px-6 py-4">Part Name</th>
-                  <th className="px-6 py-4 text-right">Current Stock</th>
-                  <th className="px-6 py-4 text-right">Avg Cons.</th>
-                  <th className="px-6 py-4 text-right">Days Supply</th>
-                  <th className="px-6 py-4 text-right">Transit Days</th>
-                  <th className="px-6 py-4 text-right">Forecast Qty</th>
-                  <th className="px-6 py-4 text-right">Unit MRP</th>
-                  <th className="px-6 py-4 text-right">Total MRP</th>
-                  <th className="px-6 py-4 text-center">Priority</th>
+                  <th className="px-2 py-2 w-[10%]">Part No</th>
+                  <th className="px-2 py-2 w-[18%]">Name</th>
+                  <th className="px-2 py-2 w-[8%] text-right">Stock</th>
+                  <th className="px-2 py-2 w-[8%] text-right">Avg </th>
+                  <th className="px-2 py-2 w-[8%] text-right">Days</th>
+                  <th className="px-2 py-2 w-[8%] text-right">Transit</th>
+                  <th className="px-2 py-2 w-[10%] text-right">Forecast</th>
+                  <th className="px-2 py-2 w-[8%] text-right">MRP</th>
+                  <th className="px-2 py-2 w-[10%] text-right">Total</th>
+                  <th className="px-2 py-2 w-[10%] text-center">Priority</th>
                 </tr>
               </thead>
+
+              {/* BODY */}
               <tbody className="divide-y divide-gray-100">
                 {forecastData.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-6 py-10 text-center text-gray-500">No data available</td>
+                    <td colSpan={10} className="px-2 py-6 text-center text-gray-500">
+                      No data available
+                    </td>
                   </tr>
                 ) : (
                   forecastData.map((item, idx) => (
                     <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
-                      <td className="px-6 py-3 font-medium">{item.partNumber || item.partNo || '-'}</td>
-                      <td className="px-6 py-3 truncate max-w-[200px]">{item.partName || '-'}</td>
-                      <td className="px-6 py-3 text-right text-gray-600">{item.currentStock || 0}</td>
-                      <td className="px-6 py-3 text-right text-gray-600">{item.avgConsumption || 0}</td>
-                      <td className="px-6 py-3 text-right text-gray-600">{item.daysOfSupply || 0}</td>
-                      <td className="px-6 py-3 text-right text-gray-600">{item.transitDays || transitTime}</td>
-                      <td className="px-6 py-3 text-right font-semibold text-blue-600">{item.forecastQty || 0}</td>
-                      <td className="px-6 py-3 text-right text-gray-600">₹{item.unitMrp || 0}</td>
-                      <td className="px-6 py-3 text-right font-semibold text-gray-800">₹{item.totalMrp || 0}</td>
-                      <td className="px-6 py-3 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.priority === 'A' || item.priority === 'HIGH' ? 'bg-red-100 text-red-700' :
-                          item.priority === 'B' || item.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-green-100 text-green-700'
-                          }`}>
+
+                      <td className="px-2 py-2 font-medium break-words">
+                        {item.partNumber || item.partNo || '-'}
+                      </td>
+
+                      <td className="px-2 py-2 break-words">
+                        {item.partName || '-'}
+                      </td>
+
+                      <td className="px-2 py-2 text-right">
+                        {item.currentStock || 0}
+                      </td>
+
+                      <td className="px-2 py-2 text-right">
+                        {item.avgConsumption || 0}
+                      </td>
+
+                      <td className="px-2 py-2 text-right">
+                        {item.daysOfSupply || 0}
+                      </td>
+
+                      <td className="px-2 py-2 text-right">
+  {item.transitTime ?? transitTime}
+</td>
+
+                      <td className="px-2 py-2 text-right font-semibold text-blue-600">
+                        {item.forecastQty || 0}
+                      </td>
+
+                      <td className="px-2 py-2 text-right">
+                        ₹{item.unitMrp || 0}
+                      </td>
+
+                      <td className="px-2 py-2 text-right font-semibold">
+                        ₹{item.totalMrp || 0}
+                      </td>
+
+                      <td className="px-2 py-2 text-center">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            item.priority === 'A' || item.priority === 'HIGH'
+                              ? 'bg-red-100 text-red-700'
+                              : item.priority === 'B' || item.priority === 'MEDIUM'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-green-100 text-green-700'
+                          }`}
+                        >
                           {item.priority || 'C'}
                         </span>
                       </td>
+
                     </tr>
                   ))
                 )}
@@ -295,12 +419,13 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
             </table>
           </div>
         </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <main className="flex-1 flex flex-col p-4 overflow-hidden max-w-[1200px] mx-auto w-full h-[calc(100vh-60px)]">
+    <main className="flex flex-col p-4 overflow-hidden max-w-[1200px] mx-auto w-full h-full">
       {/* Failure Popup */}
       {forecastError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -393,70 +518,104 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
       {/* Sticky Controls Footer */}
       <div className="flex-shrink-0 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky bottom-0 z-10">
-        <div className={`grid gap-4 items-end ${role === "ADMIN" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 justify-center max-w-md mx-auto"}`}>
-          {role === "ADMIN" && (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Forecasting Days</label>
-                <select
-                  value={forecastDays}
-                  onChange={(e) => setForecastDays(e.target.value)}
-                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none disabled:opacity-60 disabled:bg-gray-100"
-                >
-                  <option value="7">7 Days</option>
-                  <option value="10">10 Days</option>
-                  <option value="15">15 Days</option>
-                  <option value="21">21 Days</option>
-                </select>
-              </div>
+  <div className="grid gap-4 items-end grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+    {(role === "ADMIN" || role === "USER") && (
+      <>
+        {/* Forecasting Days */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+            Forecasting Days
+          </label>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Transit Time</label>
-                <select
-                  value={transitTime}
-                  onChange={(e) => setTransitTime(e.target.value)}
-                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none disabled:opacity-60 disabled:bg-gray-100"
-                >
-                  <option value="3">3 Days</option>
-                  <option value="5">5 Days</option>
-                  <option value="7">7 Days</option>
-                  <option value="10">10 Days</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order For</label>
-                <select
-                  value={orderFor}
-                  onChange={(e) => setOrderFor(e.target.value)}
-                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none disabled:opacity-60 disabled:bg-gray-100"
-                >
-                  <option value="All">All</option>
-                  <option value="Workshop">Workshop</option>
-                  <option value="Counter">Counter</option>
-                </select>
-              </div>
-            </>
-          )}
-
-          <div className={`flex items-end h-full w-full ${role !== "ADMIN" ? "justify-center" : ""}`}>
-            <button
-              onClick={handleForecast}
-              disabled={!allRequiredUploaded || isForecasting}
-              className={`w-full py-2.5 rounded font-bold text-sm text-white shadow transition-all flex items-center justify-center gap-2 ${!allRequiredUploaded
-                ? 'bg-gray-300 cursor-not-allowed shadow-none'
-                : 'bg-[#1c5ba9] hover:bg-[#154682] active:scale-[0.98]'
-                }`}
+          {role === "ADMIN" ? (
+            <select
+              value={forecastDays}
+              onChange={(e) => setForecastDays(e.target.value)}
+              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
             >
-              {isForecasting ? (
-                <><Loader2 size={16} className="animate-spin" /> Processing...</>
-              ) : (
-                'Start Forecast'
-              )}
-            </button>
-          </div>
+              <option value="7">7 Days</option>
+              <option value="10">10 Days</option>
+              <option value="15">15 Days</option>
+              <option value="21">21 Days</option>
+            </select>
+          ) : (
+            <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
+              {forecastDays} Days
+            </div>
+          )}
         </div>
-      </div>
+
+        {/* Transit Time */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+            Transit Time
+          </label>
+
+          {role === "ADMIN" ? (
+            <select
+              value={transitTime}
+              onChange={(e) => setTransitTime(e.target.value)}
+              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
+            >
+              <option value="3">3 Days</option>
+              <option value="5">5 Days</option>
+              <option value="7">7 Days</option>
+              <option value="10">10 Days</option>
+            </select>
+          ) : (
+            <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
+              {transitTime} Days
+            </div>
+          )}
+        </div>
+
+        {/* Order For */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+            Order For
+          </label>
+
+          {role === "ADMIN" ? (
+            <select
+              value={orderFor}
+              onChange={(e) => setOrderFor(e.target.value)}
+              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
+            >
+              <option value="All">All</option>
+              <option value="Workshop">Workshop</option>
+              <option value="Counter">Counter</option>
+            </select>
+          ) : (
+            <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
+              {orderFor}
+            </div>
+          )}
+        </div>
+      </>
+    )}
+
+    {/* Button */}
+    <div className={`flex items-end h-full w-full ${role !== "ADMIN" ? "justify-center" : ""}`}>
+      <button
+        onClick={handleForecast}
+        disabled={!allRequiredUploaded || isForecasting}
+        className={`w-full py-2.5 rounded font-bold text-sm text-white shadow transition-all flex items-center justify-center gap-2 ${
+          !allRequiredUploaded
+            ? "bg-gray-300 cursor-not-allowed shadow-none"
+            : "bg-[#1c5ba9] hover:bg-[#154682] active:scale-[0.98]"
+        }`}
+      >
+        {isForecasting ? (
+          <>
+            <Loader2 size={16} className="animate-spin" /> Processing...
+          </>
+        ) : (
+          "Start Forecast"
+        )}
+      </button>
+    </div>
+  </div>
+</div>
     </main>
   );
 }

@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Search, Users, ExternalLink, Plus, X, AlertCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import axios from "axios";
+import api from "@/utils/api";
 
 export default function ClientsPage() {
   const router = useRouter();
@@ -22,15 +22,39 @@ export default function ClientsPage() {
     validTill: "",
   });
 
-  const [clients, setClients] = useState([
-    { id: "CL001", name: "Automotive Solutions Ltd", forecastDays: 15, transitTime: 5, status: "Active" },
-    { id: "CL002", name: "Velocity Spare Parts", forecastDays: 7, transitTime: 3, status: "Active" },
-  ]);
+ type Client = {
+  id: string;
+  username: string;
+  forecastDays: number;
+  transitTime: number;
+  isValid: boolean;
+};
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+const [clients, setClients] = useState<Client[]>([]);
+
+  useEffect(() => {
+  fetchClients();
+}, []);
+
+const fetchClients = async () => {
+  const token = localStorage.getItem("accessToken");
+
+  try {
+    const res = await api.get(
+      "http://localhost:8080/api/auth/admin/users",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+
+    setClients(res.data);
+  } catch (error) {
+    toast.error("Failed to load clients");
+  }
+};
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,19 +67,30 @@ export default function ClientsPage() {
       // await axios.post("http://localhost:8080/api/clients", formData, { headers: { Authorization: \`Bearer \${token}\` } });
       
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      //await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const token = localStorage.getItem("accessToken");
+
+await api.post(
+  "http://localhost:8080/api/auth/admin/create-user",
+  {
+    username: formData.username,
+    email: formData.email,
+    password: formData.password,
+    role: "USER", // always create client as USER
+    forecastDays: parseInt(formData.forecastDays),
+    transitTime: parseInt(formData.transitTime),
+    validTill: formData.validTill
+  },
+  {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }
+);
       
       // Adding to dummy list for demo purposes
-      setClients([
-        ...clients, 
-        { 
-          id: `CL00${clients.length + 1}`, 
-          name: formData.username, 
-          forecastDays: parseInt(formData.forecastDays), 
-          transitTime: parseInt(formData.transitTime), 
-          status: "Active" 
-        }
-      ]);
+      await fetchClients();
       
       toast.success("Client created successfully!");
       setIsAddModalOpen(false);
@@ -74,6 +109,13 @@ export default function ClientsPage() {
     }
   };
 
+
+  const handleInputChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+) => {
+  const { name, value } = e.target;
+  setFormData(prev => ({ ...prev, [name]: value }));
+};
   return (
     <main className="flex-grow p-6 w-full max-w-[1400px] mx-auto flex flex-col gap-6">
       <div className="flex flex-col gap-6">
@@ -105,41 +147,52 @@ export default function ClientsPage() {
             <table className="w-full text-sm text-left border-collapse">
               <thead className="bg-[#f0f4f8] text-gray-700 border-b border-gray-200 font-semibold">
                 <tr>
-                  <th className="px-6 py-4 border-r border-gray-200">ID</th>
-                  <th className="px-6 py-4 border-r border-gray-200">Company Name</th>
+                  <th className="px-6 py-4 border-r border-gray-200">SRL No.</th>
+                  <th className="px-6 py-4 border-r border-gray-200">Username</th>
                   <th className="px-6 py-4 border-r border-gray-200">Forecasting Days</th>
                   <th className="px-6 py-4 border-r border-gray-200">Transit Time</th>
                   <th className="px-6 py-4 text-center">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {clients.map((client) => (
-                  <tr
-                    key={client.id}
-                    onClick={() => router.push(`/dashboard/clients/${client.id}`)}
-                    className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
-                  >
-                    <td className="px-6 py-5 border-r border-gray-100 text-blue-600 font-bold font-mono">
-                      {client.id}
-                    </td>
-                    <td className="px-6 py-5 border-r border-gray-100 font-bold text-gray-800 flex items-center justify-between">
-                      <span>{client.name}</span>
-                      <ExternalLink size={14} className="text-gray-400 group-hover:text-[#1c5ba9] opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </td>
-                    <td className="px-6 py-5 border-r border-gray-100 font-semibold text-gray-600">
-                      {client.forecastDays} Days
-                    </td>
-                    <td className="px-6 py-5 border-r border-gray-100 font-semibold text-gray-600">
-                      {client.transitTime} Days
-                    </td>
-                    <td className="px-6 py-5 text-center">
-                      <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ring-1 ring-emerald-200/50">
-                        {client.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+             <tbody className="divide-y divide-gray-100">
+  {clients.map((client, index) => (
+  <tr
+    key={client.id}
+    onClick={() => router.push(`/dashboard/clients/${client.id}`)}
+    className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+  >
+    <td className="px-6 py-5 border-r border-gray-100 text-blue-600 font-bold font-mono">
+      {index + 1}
+    </td>
+
+      <td className="px-6 py-5 border-r border-gray-100 font-bold text-gray-800 flex items-center justify-between">
+        <span>{client.username}</span>
+        <ExternalLink
+          size={14}
+          className="text-gray-400 group-hover:text-[#1c5ba9] opacity-0 group-hover:opacity-100 transition-opacity"
+        />
+      </td>
+
+      <td className="px-6 py-5 border-r border-gray-100 font-semibold text-gray-600">
+        {client.forecastDays} Days
+      </td>
+
+      <td className="px-6 py-5 border-r border-gray-100 font-semibold text-gray-600">
+        {client.transitTime} Days
+      </td>
+
+      <td className="px-6 py-5 text-center">
+        <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ring-1
+          ${client.isValid 
+            ? "bg-emerald-50 text-emerald-700 ring-emerald-200/50"
+            : "bg-red-50 text-red-700 ring-red-200/50"
+          }`}>
+          {client.isValid ? "Active" : "Expired"}
+        </span>
+      </td>
+    </tr>
+  ))}
+</tbody>
             </table>
           </div>
         </div>
