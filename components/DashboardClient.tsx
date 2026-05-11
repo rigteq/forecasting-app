@@ -57,6 +57,8 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const [downloadingType, setDownloadingType] = useState<string | null>(null);
   const [processingState, setProcessingState] = useState({});
 
+  const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
   const activePolls = React.useRef(new Set<string>());
 
   useEffect(() => {
@@ -65,7 +67,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         const token = localStorage.getItem("accessToken");
 
         const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/user/config`,
+          `${BASE_URL}/api/auth/user/config`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -92,10 +94,6 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
     fetchUserConfig();
   }, []);
-
-
-  const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-
 
 
   const pollProgress = async (jobId: string, cardId: string) => {

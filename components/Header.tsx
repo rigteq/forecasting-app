@@ -39,7 +39,7 @@ export default function Header() {
     }
 
     try {
-      await fetch("${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout", {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

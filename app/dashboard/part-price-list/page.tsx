@@ -186,7 +186,7 @@ export default function PartPriceListPage() {
       const token = localStorage.getItem("accessToken");
 
       await axios.delete(
-        "${process.env.NEXT_PUBLIC_API_URL}/api/file/upload/delete/PART_PRICE",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/file/upload/delete/PART_PRICE`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -225,7 +225,7 @@ export default function PartPriceListPage() {
       const token = localStorage.getItem("accessToken");
 
       const res = await axios.get(
-        "${process.env.NEXT_PUBLIC_API_URL}/api/download/PART_PRICE",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/download/PART_PRICE`,
         {
           responseType: "blob",
           headers: { Authorization: `Bearer ${token}` }
