@@ -168,7 +168,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
         clearInterval(interval);
 
-        activePolls.delete(cardId);
+        activePolls.current.delete(cardId);
 
         setUploadingState(prev => ({
           ...prev,
