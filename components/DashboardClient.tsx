@@ -228,13 +228,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     }));
 
     try {
-
-
-
       const url = `${BASE_URL}/api/file/upload/${typeMap}?uploadJobId=${jobId}`;
 
       pollProgress(jobId, cardId);
-
 
       const res = await axios.post(url, formData, {
         headers: {

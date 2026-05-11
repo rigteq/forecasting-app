@@ -33,13 +33,20 @@ export default function PartPriceListPage() {
           }
         );
 
-        if (res.data) {
-          setFileName(res.data.fileName || "");
+        if (res.data?.fileName) {
+
+          setFileName(res.data.fileName);
+
           setLastUploaded(
             res.data.createdDate
               ? new Date(res.data.createdDate)
               : null
           );
+
+        } else {
+
+          setFileName("");
+          setLastUploaded(null);
         }
 
       } catch (error) {
