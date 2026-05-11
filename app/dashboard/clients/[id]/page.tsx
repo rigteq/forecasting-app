@@ -29,7 +29,7 @@ export default function ClientDashboard() {
 
     try {
       const res = await api.get(
-        `http://localhost:8080/api/auth/user/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/user/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -55,7 +55,7 @@ export default function ClientDashboard() {
 
     try {
       await api.put(
-        `http://localhost:8080/api/auth/user/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/user/${id}`,
         {
           forecastDays: parseInt(forecastDays),
           transitTime: parseInt(transitTime),

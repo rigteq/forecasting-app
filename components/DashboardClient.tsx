@@ -65,7 +65,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         const token = localStorage.getItem("accessToken");
 
         const res = await axios.get(
-          "http://localhost:8080/api/auth/user/config",
+          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/user/config`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -94,7 +94,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   }, []);
 
 
-  const BASE_URL = "http://localhost:8080";
+  const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 
 
@@ -337,7 +337,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     setForecastError("");
 
     try {
-      const res = await fetch(`http://localhost:8080/api/forecast/${jobId || "dummy-job-id"}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/forecast/${jobId || "dummy-job-id"}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -373,7 +373,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     const token = localStorage.getItem("accessToken");
     setDownloadingType(type);
     try {
-      const res = await fetch(`http://localhost:8080/api/download/${type}/${jobId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/download/${type}/${jobId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

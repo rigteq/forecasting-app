@@ -25,7 +25,7 @@ export default function PartPriceListPage() {
         const token = localStorage.getItem("accessToken");
 
         const res = await axios.get(
-          "http://localhost:8080/api/file/upload/current/PART_PRICE",
+          `${process.env.NEXT_PUBLIC_API_URL}/api/file/upload/current/PART_PRICE`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -92,7 +92,7 @@ export default function PartPriceListPage() {
       pollProgress(jobId);
 
       await axios.post(
-        `http://localhost:8080/api/file/upload/PART_PRICE?uploadJobId=${jobId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/file/upload/PART_PRICE?uploadJobId=${jobId}`,
         formData,
         {
           headers: {
@@ -125,7 +125,7 @@ export default function PartPriceListPage() {
       try {
 
         const res = await axios.get(
-          `http://localhost:8080/api/file/upload/progress/${jobId}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/file/upload/progress/${jobId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -186,7 +186,7 @@ export default function PartPriceListPage() {
       const token = localStorage.getItem("accessToken");
 
       await axios.delete(
-        "http://localhost:8080/api/file/upload/delete/PART_PRICE",
+        "${process.env.NEXT_PUBLIC_API_URL}/api/file/upload/delete/PART_PRICE",
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -225,7 +225,7 @@ export default function PartPriceListPage() {
       const token = localStorage.getItem("accessToken");
 
       const res = await axios.get(
-        "http://localhost:8080/api/download/PART_PRICE",
+        "${process.env.NEXT_PUBLIC_API_URL}/api/download/PART_PRICE",
         {
           responseType: "blob",
           headers: { Authorization: `Bearer ${token}` }
