@@ -57,7 +57,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const [downloadingType, setDownloadingType] = useState<string | null>(null);
   const [processingState, setProcessingState] = useState({});
 
-  const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+  const BASE_URL = "/api/backend";
 
   const activePolls = React.useRef(new Set<string>());
 
@@ -335,7 +335,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     setForecastError("");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/forecast/${jobId || "dummy-job-id"}`, {
+      const res = await fetch(`/api/backend/api/forecast/${jobId || "dummy-job-id"}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -371,7 +371,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     const token = localStorage.getItem("accessToken");
     setDownloadingType(type);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/download/${type}/${jobId}`, {
+      const res = await fetch(`/api/backend/api/download/${type}/${jobId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

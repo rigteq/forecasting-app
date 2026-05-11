@@ -58,7 +58,7 @@ export default function ClientsPage() {
 
     try {
       const res = await api.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/admin/users`,
+        `/api/backend/api/auth/admin/users`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -81,7 +81,7 @@ export default function ClientsPage() {
       const token = localStorage.getItem("accessToken");
 
       await api.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/admin/user/${clientId}`,
+        `/api/backend/api/auth/admin/user/${clientId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -121,7 +121,7 @@ export default function ClientsPage() {
       const token = localStorage.getItem("accessToken");
 
       await api.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/admin/create-user`,
+        `/api/backend/api/auth/admin/create-user`,
         {
           username: formData.username,
           email: formData.email,

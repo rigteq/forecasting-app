@@ -38,7 +38,7 @@ export default function Login() {
     setError("");
     setIsLoading(true);
 
-    const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+    const BASE_URL = "/api/backend";
 
 try {
   const res = await fetch(`${BASE_URL}/api/auth/login`, {
