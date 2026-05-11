@@ -14,69 +14,71 @@ export default function ClientDashboard() {
   const id = params?.id as string;
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
-const [clientName, setClientName] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [validTill, setValidTill] = useState("");
 
   // Client specific default values
   const [forecastDays, setForecastDays] = useState("15");
   const [transitTime, setTransitTime] = useState("7");
   const [orderFor, setOrderFor] = useState("All Part");
 
- 
 
-const fetchClient = async () => {
-  const token = localStorage.getItem("accessToken");
 
-  try {
-    const res = await api.get(
-  `http://localhost:8080/api/auth/user/${id}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
+  const fetchClient = async () => {
+    const token = localStorage.getItem("accessToken");
+
+    try {
+      const res = await api.get(
+        `http://localhost:8080/api/auth/user/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = res.data;
+
+      setClientName(data.username);
+      setForecastDays(String(data.forecastDays));
+      setTransitTime(String(data.transitTime));
+      setValidTill(data.validTill?.slice(0, 16) || "");
+      setLoading(false);
+    } catch (error) {
+      toast.error("Failed to load client data");
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    const token = localStorage.getItem("accessToken");
+
+    try {
+      await api.put(
+        `http://localhost:8080/api/auth/user/${id}`,
+        {
+          forecastDays: parseInt(forecastDays),
+          transitTime: parseInt(transitTime),
+          validTill: validTill
         },
-      }
-    );
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-    const data = res.data;
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
 
-    setClientName(data.username);
-    setForecastDays(String(data.forecastDays));
-    setTransitTime(String(data.transitTime));
-    setLoading(false);
-  } catch (error) {
-    toast.error("Failed to load client data");
-    setLoading(false);
-  }
-};
+    } catch (error) {
+      toast.error("Failed to update client");
+    }
+  };
 
-const handleSave = async () => {
-  const token = localStorage.getItem("accessToken");
-
-  try {
-    await api.put(
-  `http://localhost:8080/api/auth/user/${id}`,
-      {
-        forecastDays: parseInt(forecastDays),
-        transitTime: parseInt(transitTime),
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
-
-  } catch (error) {
-    console.log(error.response?.data);
-    toast.error("Failed to update client");
-  }
-};
-
- useEffect(() => {
-  fetchClient();
-}, [id]);
+  useEffect(() => {
+    fetchClient();
+  }, [id]);
 
 
   return (
@@ -158,6 +160,19 @@ const handleSave = async () => {
                   <option value="Counter">Counter</option>
                 </select>
                 <p className="text-[10px] text-gray-400 font-medium italic mt-1 px-1">Default channel for automated order generation.</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">
+                  Valid Till
+                </label>
+
+                <input
+                  type="datetime-local"
+                  value={validTill}
+                  onChange={(e) => setValidTill(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-300 rounded px-4 py-3 font-bold text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#1c5ba9]/50 transition-all shadow-sm"
+                />
               </div>
             </div>
 

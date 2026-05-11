@@ -42,12 +42,12 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
   const [forecastDays, setForecastDays] = useState<string>("7");
-const [transitTime, setTransitTime] = useState<string>("5");
+  const [transitTime, setTransitTime] = useState<string>("5");
 
   const [orderFor, setOrderFor] = useState("All");
   const [stockType, setStockType] = useState("Below Safety Stock");
 
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobId] = useState<string>(crypto.randomUUID());
 
   const [isForecasting, setIsForecasting] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -55,47 +55,146 @@ const [transitTime, setTransitTime] = useState<string>("5");
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [forecastError, setForecastError] = useState("");
   const [downloadingType, setDownloadingType] = useState<string | null>(null);
+  const [processingState, setProcessingState] = useState({});
+
+  const activePolls = React.useRef(new Set<string>());
 
   useEffect(() => {
-  const fetchUserConfig = async () => {
-    try {
-      const token = localStorage.getItem("accessToken");
+    const fetchUserConfig = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
 
-      const res = await axios.get(
-        "http://localhost:8080/api/auth/user/config",
-        {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await axios.get(
+          "http://localhost:8080/api/auth/user/config",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        const data = res.data;
+
+        if (data) {
+          setForecastDays(String(data.forecastDays ?? "7"));
+          setTransitTime(String(data.transitTime ?? "5"));
+        } else {
+          setForecastDays("7");
+          setTransitTime("5");
         }
-      );
 
-      const data = res.data;
+      } catch (err) {
+        console.error("Failed to load config", err);
 
-if (data) {
-  setForecastDays(String(data.forecastDays ?? "7"));
-  setTransitTime(String(data.transitTime ?? "5"));
-} else {
-  setForecastDays("7");
-  setTransitTime("5");
-}
+        // fallback values (VERY IMPORTANT)
+        setForecastDays("7");
+        setTransitTime("5");
+      }
+    };
 
-    } catch (err) {
-      console.error("Failed to load config", err);
+    fetchUserConfig();
+  }, []);
 
-      // fallback values (VERY IMPORTANT)
-       setForecastDays("7");
-  setTransitTime("5");
-    }
+
+  const BASE_URL = "http://localhost:8080";
+
+
+
+  const pollProgress = async (jobId: string, cardId: string) => {
+
+    // prevent duplicate polling
+    if (activePolls.current.has(cardId)) return;
+
+    activePolls.current.add(cardId)
+
+    const token = localStorage.getItem("accessToken");
+
+    const interval = setInterval(async () => {
+
+      try {
+
+        const progressRes = await axios.get(
+          `${BASE_URL}/api/file/upload/progress/${jobId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const progress = Number(progressRes.data);
+
+        console.log(
+          "JOB ID:",
+          jobId,
+          "CARD:",
+          cardId,
+          "PROGRESS:",
+          progress
+        );
+
+        // Smooth progress after upload
+        const calculatedProgress = Math.min(
+          30 + Math.round(progress * 0.7),
+          99
+        );
+
+        setUploadProgress(prev => ({
+          ...prev,
+          [cardId]: Math.min(calculatedProgress, 99),
+        }));
+
+        // COMPLETE
+        if (progress >= 100) {
+
+          clearInterval(interval);
+
+          activePolls.current.delete(cardId);
+
+          setUploadProgress(prev => ({
+            ...prev,
+            [cardId]: 100,
+          }));
+
+          setUploadingState(prev => ({
+            ...prev,
+            [cardId]: false,
+          }));
+
+          toast.success("Upload Completed", {
+            toastId: `upload-success-${cardId}`,
+          });
+        }
+
+      } catch (error) {
+
+        clearInterval(interval);
+
+        activePolls.delete(cardId);
+
+        setUploadingState(prev => ({
+          ...prev,
+          [cardId]: false,
+        }));
+
+        console.error(error);
+      }
+
+    }, 500); // change 100ms -> 500ms
   };
 
-  fetchUserConfig();
-}, []);
+  const handleFileChange = async (
+    cardId: string,
+    typeMap: string,
+    multiple: boolean,
+    files: File[]
+  ) => {
 
-  const handleFileChange = async (cardId: string, typeMap: string, multiple: boolean, files: File[]) => {
     if (files.length === 0) return;
 
     if (multiple) {
+
       const existingFiles = tabData[cardId] || [];
       const totalFiles = existingFiles.length + files.length;
+
       if (totalFiles > 6) {
         toast.warning("Maximum 6 files allowed");
         return;
@@ -103,62 +202,108 @@ if (data) {
     }
 
     const token = localStorage.getItem("accessToken");
+
     if (!token) {
       router.replace("/");
       return;
     }
 
     const formData = new FormData();
-    files.forEach(f => formData.append("file", f));
+
+    files.forEach((f) => formData.append("file", f));
 
     setTabData((prev) => ({
       ...prev,
-      [cardId]: multiple ? [...(prev[cardId] || []), ...files] : [files[0]],
+      [cardId]: multiple
+        ? [...(prev[cardId] || []), ...files]
+        : [files[0]],
     }));
 
-    setUploadingState(prev => ({ ...prev, [cardId]: true }));
-    setUploadProgress(prev => ({ ...prev, [cardId]: 0 }));
+    setUploadingState((prev) => ({
+      ...prev,
+      [cardId]: true,
+    }));
+
+    setUploadProgress((prev) => ({
+      ...prev,
+      [cardId]: 0,
+    }));
 
     try {
-      const newJobId = jobId || crypto.randomUUID();
-      if (!jobId) setJobId(newJobId);
 
-      let url = `http://localhost:8080/api/file/upload/${typeMap}?uploadJobId=${newJobId}`;
+
+
+      const url = `${BASE_URL}/api/file/upload/${typeMap}?uploadJobId=${jobId}`;
+
+      pollProgress(jobId, cardId);
+
 
       const res = await axios.post(url, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(prev => ({ ...prev, [cardId]: percentCompleted }));
-          }
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
+
+        onUploadProgress: (progressEvent) => {
+
+          const percent = Math.round(
+            (progressEvent.loaded * 30) /
+            (progressEvent.total || 1)
+          );
+
+          setUploadProgress(prev => ({
+            ...prev,
+            [cardId]: percent,
+          }));
+        }
       });
+
+      // AFTER FILE UPLOAD START BACKEND PROCESS POLLING
+
+
+
 
       const data = res.data;
 
       setUploadedFileIds((prev) => ({
         ...prev,
-        [cardId]: newJobId,
+        [cardId]: jobId,
       }));
 
-      toast.success(data?.message || "Upload successful");
+
 
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Upload failed";
+
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Upload failed";
+
       toast.error(errorMessage);
 
+      setUploadingState((prev) => ({
+        ...prev,
+        [cardId]: false,
+      }));
+
+      setUploadProgress((prev) => ({
+        ...prev,
+        [cardId]: 0,
+      }));
+
       if (!multiple) {
-        setTabData(prev => {
+
+        setTabData((prev) => {
+
           const newData = { ...prev };
+
           delete newData[cardId];
+
           return newData;
         });
       }
-    } finally {
-      setUploadingState(prev => ({ ...prev, [cardId]: false }));
     }
   };
+
 
   const handleRemoveSingleFile = (cardId: string, index: number) => {
     setTabData((prev) => {
@@ -226,7 +371,7 @@ if (data) {
   const handleDownload = async (type: string) => {
     if (!jobId) return;
     const token = localStorage.getItem("accessToken");
-    setDownloadingType(type); 
+    setDownloadingType(type);
     try {
       const res = await fetch(`http://localhost:8080/api/download/${type}/${jobId}`, {
         method: "POST",
@@ -252,8 +397,8 @@ if (data) {
     } catch (err) {
       toast.error("Download failed");
     } finally {
-    setDownloadingType(null); // stop loader
-  }
+      setDownloadingType(null); // stop loader
+    }
   };
 
   const allRequiredUploaded = CARDS_CONFIG.filter(c => {
@@ -263,8 +408,8 @@ if (data) {
 
   if (showResults) {
     return (
-     <div className="bg-gray-50 w-full max-w-7xl mx-auto rounded-lg shadow mt-4 h-[calc(100vh-120px)] overflow-hidden flex flex-col">
-         <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
+      <div className="bg-gray-50 w-full max-w-7xl mx-auto rounded-lg shadow mt-4 h-[calc(100vh-120px)] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
           <button
             onClick={() => setShowResults(false)}
             className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
@@ -274,151 +419,150 @@ if (data) {
 
           <div className="flex gap-3">
 
-                {/* Excel */}
-                <button
-                  onClick={() => handleDownload("excel")}
-                  disabled={downloadingType !== null}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium disabled:opacity-60"
-                >
-                  {downloadingType === "excel" ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" /> Downloading...
-                    </>
-                  ) : (
-                    <>
-                      <FileSpreadsheet size={16} /> Excel
-                    </>
-                  )}
-                </button>
+            {/* Excel */}
+            <button
+              onClick={() => handleDownload("excel")}
+              disabled={downloadingType !== null}
+              className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium disabled:opacity-60"
+            >
+              {downloadingType === "excel" ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Downloading...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet size={16} /> Excel
+                </>
+              )}
+            </button>
 
-                {/* CSV */}
-                <button
-                  onClick={() => handleDownload("csv")}
-                  disabled={downloadingType !== null}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium disabled:opacity-60"
-                >
-                  {downloadingType === "csv" ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" /> Downloading...
-                    </>
-                  ) : (
-                    <>
-                      <FileSpreadsheet size={16} /> CSV
-                    </>
-                  )}
-                </button>
+            {/* CSV */}
+            <button
+              onClick={() => handleDownload("csv")}
+              disabled={downloadingType !== null}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium disabled:opacity-60"
+            >
+              {downloadingType === "csv" ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Downloading...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet size={16} /> CSV
+                </>
+              )}
+            </button>
 
-                {/* PDF */}
-                <button
-                  onClick={() => handleDownload("pdf")}
-                  disabled={downloadingType !== null}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium disabled:opacity-60"
-                >
-                  {downloadingType === "pdf" ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" /> Downloading...
-                    </>
-                  ) : (
-                    <>
-                      <Download size={16} /> PDF
-                    </>
-                  )}
-                </button>
+            {/* PDF */}
+            <button
+              onClick={() => handleDownload("pdf")}
+              disabled={downloadingType !== null}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium disabled:opacity-60"
+            >
+              {downloadingType === "pdf" ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Downloading...
+                </>
+              ) : (
+                <>
+                  <Download size={16} /> PDF
+                </>
+              )}
+            </button>
 
-              </div>
+          </div>
         </div>
 
         <div className="p-4 lg:p-6 flex-1 overflow-hidden">
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
 
-   <div className="overflow-y-auto h-[calc(100vh-240px)] rounded-xl">
+            <div className="overflow-y-auto h-[calc(100vh-240px)] rounded-xl">
               <table className="w-full text-xs text-left table-fixed">
-    
-              {/* HEADER */}
-              <thead className="bg-gray-100 text-gray-700 uppercase text-[10px] font-semibold sticky top-0 z-10">
-                <tr>
-                  <th className="px-2 py-2 w-[10%]">Part No</th>
-                  <th className="px-2 py-2 w-[18%]">Name</th>
-                  <th className="px-2 py-2 w-[8%] text-right">Stock</th>
-                  <th className="px-2 py-2 w-[8%] text-right">Avg </th>
-                  <th className="px-2 py-2 w-[8%] text-right">Days</th>
-                  <th className="px-2 py-2 w-[8%] text-right">Transit</th>
-                  <th className="px-2 py-2 w-[10%] text-right">Forecast</th>
-                  <th className="px-2 py-2 w-[8%] text-right">MRP</th>
-                  <th className="px-2 py-2 w-[10%] text-right">Total</th>
-                  <th className="px-2 py-2 w-[10%] text-center">Priority</th>
-                </tr>
-              </thead>
 
-              {/* BODY */}
-              <tbody className="divide-y divide-gray-100">
-                {forecastData.length === 0 ? (
+                {/* HEADER */}
+                <thead className="bg-gray-100 text-gray-700 uppercase text-[10px] font-semibold sticky top-0 z-10">
                   <tr>
-                    <td colSpan={10} className="px-2 py-6 text-center text-gray-500">
-                      No data available
-                    </td>
+                    <th className="px-2 py-2 w-[10%]">Part No</th>
+                    <th className="px-2 py-2 w-[18%]">Name</th>
+                    <th className="px-2 py-2 w-[8%] text-right">Stock</th>
+                    <th className="px-2 py-2 w-[8%] text-right">Avg </th>
+                    <th className="px-2 py-2 w-[8%] text-right">Days</th>
+                    <th className="px-2 py-2 w-[8%] text-right">Transit</th>
+                    <th className="px-2 py-2 w-[10%] text-right">Forecast</th>
+                    <th className="px-2 py-2 w-[8%] text-right">MRP</th>
+                    <th className="px-2 py-2 w-[10%] text-right">Total</th>
+                    <th className="px-2 py-2 w-[10%] text-center">Priority</th>
                   </tr>
-                ) : (
-                  forecastData.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
+                </thead>
 
-                      <td className="px-2 py-2 font-medium break-words">
-                        {item.partNumber || item.partNo || '-'}
+                {/* BODY */}
+                <tbody className="divide-y divide-gray-100">
+                  {forecastData.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="px-2 py-6 text-center text-gray-500">
+                        No data available
                       </td>
+                    </tr>
+                  ) : (
+                    forecastData.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
 
-                      <td className="px-2 py-2 break-words">
-                        {item.partName || '-'}
-                      </td>
+                        <td className="px-2 py-2 font-medium break-words">
+                          {item.partNumber || item.partNo || '-'}
+                        </td>
 
-                      <td className="px-2 py-2 text-right">
-                        {item.currentStock || 0}
-                      </td>
+                        <td className="px-2 py-2 break-words">
+                          {item.partName || '-'}
+                        </td>
 
-                      <td className="px-2 py-2 text-right">
-                        {item.avgConsumption || 0}
-                      </td>
+                        <td className="px-2 py-2 text-right">
+                          {item.currentStock || 0}
+                        </td>
 
-                      <td className="px-2 py-2 text-right">
-                        {item.daysOfSupply || 0}
-                      </td>
+                        <td className="px-2 py-2 text-right">
+                          {item.avgConsumption || 0}
+                        </td>
 
-                      <td className="px-2 py-2 text-right">
-  {item.transitTime ?? transitTime}
-</td>
+                        <td className="px-2 py-2 text-right">
+                          {item.daysOfSupply || 0}
+                        </td>
 
-                      <td className="px-2 py-2 text-right font-semibold text-blue-600">
-                        {item.forecastQty || 0}
-                      </td>
+                        <td className="px-2 py-2 text-right">
+                          {item.transitTime ?? transitTime}
+                        </td>
 
-                      <td className="px-2 py-2 text-right">
-                        ₹{item.unitMrp || 0}
-                      </td>
+                        <td className="px-2 py-2 text-right font-semibold text-blue-600">
+                          {item.forecastQty || 0}
+                        </td>
 
-                      <td className="px-2 py-2 text-right font-semibold">
-                        ₹{item.totalMrp || 0}
-                      </td>
+                        <td className="px-2 py-2 text-right">
+                          ₹{item.unitMrp || 0}
+                        </td>
 
-                      <td className="px-2 py-2 text-center">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            item.priority === 'A' || item.priority === 'HIGH'
+                        <td className="px-2 py-2 text-right font-semibold">
+                          ₹{item.totalMrp || 0}
+                        </td>
+
+                        <td className="px-2 py-2 text-center">
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${item.priority === 'A' || item.priority === 'HIGH'
                               ? 'bg-red-100 text-red-700'
                               : item.priority === 'B' || item.priority === 'MEDIUM'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-green-100 text-green-700'
-                          }`}
-                        >
-                          {item.priority || 'C'}
-                        </span>
-                      </td>
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-green-100 text-green-700'
+                              }`}
+                          >
+                            {item.priority || 'C'}
+                          </span>
+                        </td>
 
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
         </div>
       </div>
     );
@@ -518,104 +662,103 @@ if (data) {
 
       {/* Sticky Controls Footer */}
       <div className="flex-shrink-0 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky bottom-0 z-10">
-  <div className="grid gap-4 items-end grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-    {(role === "ADMIN" || role === "USER") && (
-      <>
-        {/* Forecasting Days */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-            Forecasting Days
-          </label>
+        <div className="grid gap-4 items-end grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {(role === "ADMIN" || role === "USER") && (
+            <>
+              {/* Forecasting Days */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                  Forecasting Days
+                </label>
 
-          {role === "ADMIN" ? (
-            <select
-              value={forecastDays}
-              onChange={(e) => setForecastDays(e.target.value)}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
-            >
-              <option value="7">7 Days</option>
-              <option value="10">10 Days</option>
-              <option value="15">15 Days</option>
-              <option value="21">21 Days</option>
-            </select>
-          ) : (
-            <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
-              {forecastDays} Days
-            </div>
+                {role === "ADMIN" ? (
+                  <select
+                    value={forecastDays}
+                    onChange={(e) => setForecastDays(e.target.value)}
+                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
+                  >
+                    <option value="7">7 Days</option>
+                    <option value="10">10 Days</option>
+                    <option value="15">15 Days</option>
+                    <option value="21">21 Days</option>
+                  </select>
+                ) : (
+                  <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
+                    {forecastDays} Days
+                  </div>
+                )}
+              </div>
+
+              {/* Transit Time */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                  Transit Time
+                </label>
+
+                {role === "ADMIN" ? (
+                  <select
+                    value={transitTime}
+                    onChange={(e) => setTransitTime(e.target.value)}
+                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
+                  >
+                    <option value="3">3 Days</option>
+                    <option value="5">5 Days</option>
+                    <option value="7">7 Days</option>
+                    <option value="10">10 Days</option>
+                  </select>
+                ) : (
+                  <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
+                    {transitTime} Days
+                  </div>
+                )}
+              </div>
+
+              {/* Order For */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                  Order For
+                </label>
+
+                {role === "ADMIN" ? (
+                  <select
+                    value={orderFor}
+                    onChange={(e) => setOrderFor(e.target.value)}
+                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
+                  >
+                    <option value="All">All</option>
+                    <option value="Workshop">Workshop</option>
+                    <option value="Counter">Counter</option>
+                  </select>
+                ) : (
+                  <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
+                    {orderFor}
+                  </div>
+                )}
+              </div>
+            </>
           )}
-        </div>
 
-        {/* Transit Time */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-            Transit Time
-          </label>
-
-          {role === "ADMIN" ? (
-            <select
-              value={transitTime}
-              onChange={(e) => setTransitTime(e.target.value)}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
+          {/* Button */}
+          <div className={`flex items-end h-full w-full ${role !== "ADMIN" ? "justify-center" : ""}`}>
+            <button
+              onClick={handleForecast}
+              disabled={!allRequiredUploaded || isForecasting}
+              className={`w-full py-2.5 rounded font-bold text-sm text-white shadow transition-all flex items-center justify-center gap-2 ${!allRequiredUploaded
+                ? "bg-gray-300 cursor-not-allowed shadow-none"
+                : "bg-[#1c5ba9] hover:bg-[#154682] active:scale-[0.98]"
+                }`}
             >
-              <option value="3">3 Days</option>
-              <option value="5">5 Days</option>
-              <option value="7">7 Days</option>
-              <option value="10">10 Days</option>
-            </select>
-          ) : (
-            <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
-              {transitTime} Days
-            </div>
-          )}
+              {isForecasting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Processing...
+                </>
+              ) : (
+                "Start Forecast"
+              )}
+            </button>
+          </div>
         </div>
-
-        {/* Order For */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-            Order For
-          </label>
-
-          {role === "ADMIN" ? (
-            <select
-              value={orderFor}
-              onChange={(e) => setOrderFor(e.target.value)}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
-            >
-              <option value="All">All</option>
-              <option value="Workshop">Workshop</option>
-              <option value="Counter">Counter</option>
-            </select>
-          ) : (
-            <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
-              {orderFor}
-            </div>
-          )}
-        </div>
-      </>
-    )}
-
-    {/* Button */}
-    <div className={`flex items-end h-full w-full ${role !== "ADMIN" ? "justify-center" : ""}`}>
-      <button
-        onClick={handleForecast}
-        disabled={!allRequiredUploaded || isForecasting}
-        className={`w-full py-2.5 rounded font-bold text-sm text-white shadow transition-all flex items-center justify-center gap-2 ${
-          !allRequiredUploaded
-            ? "bg-gray-300 cursor-not-allowed shadow-none"
-            : "bg-[#1c5ba9] hover:bg-[#154682] active:scale-[0.98]"
-        }`}
-      >
-        {isForecasting ? (
-          <>
-            <Loader2 size={16} className="animate-spin" /> Processing...
-          </>
-        ) : (
-          "Start Forecast"
-        )}
-      </button>
-    </div>
-  </div>
-</div>
+      </div>
     </main>
   );
 }
