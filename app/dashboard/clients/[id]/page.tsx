@@ -1,23 +1,85 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import api from "@/utils/api";
+import { toast } from "react-toastify";
+
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Info, Save, CheckCircle2 } from "lucide-react";
 
-export default function ClientDashboard({ params }: { params: { id: string } }) {
+
+export default function ClientDashboard() {
+  const params = useParams();
+  const id = params?.id as string;
   const [isSaved, setIsSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [clientName, setClientName] = useState("");
+  const [validTill, setValidTill] = useState("");
 
   // Client specific default values
   const [forecastDays, setForecastDays] = useState("15");
   const [transitTime, setTransitTime] = useState("7");
   const [orderFor, setOrderFor] = useState("All Part");
 
-  const handleSave = () => {
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+
+
+  const fetchClient = async () => {
+    const token = localStorage.getItem("accessToken");
+
+    try {
+      const res = await api.get(
+        `http://localhost:8080/api/auth/user/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = res.data;
+
+      setClientName(data.username);
+      setForecastDays(String(data.forecastDays));
+      setTransitTime(String(data.transitTime));
+      setValidTill(data.validTill?.slice(0, 16) || "");
+      setLoading(false);
+    } catch (error) {
+      toast.error("Failed to load client data");
+      setLoading(false);
+    }
   };
 
-  const clientName = params.id === "CL001" ? "Automotive Solutions Ltd" : "Velocity Spare Parts";
+  const handleSave = async () => {
+    const token = localStorage.getItem("accessToken");
+
+    try {
+      await api.put(
+        `http://localhost:8080/api/auth/user/${id}`,
+        {
+          forecastDays: parseInt(forecastDays),
+          transitTime: parseInt(transitTime),
+          validTill: validTill
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+
+    } catch (error) {
+      toast.error("Failed to update client");
+    }
+  };
+
+  useEffect(() => {
+    fetchClient();
+  }, [id]);
+
 
   return (
     <main className="flex-grow p-6 w-full max-w-[1400px] mx-auto flex flex-col gap-6">
@@ -55,7 +117,7 @@ export default function ClientDashboard({ params }: { params: { id: string } }) 
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-8">
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">Safety Stock Days</label>
+                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">Forecast Days</label>
                 <select
                   value={forecastDays}
                   onChange={(e) => setForecastDays(e.target.value)}
@@ -71,7 +133,7 @@ export default function ClientDashboard({ params }: { params: { id: string } }) 
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">Logistics & Transit Time</label>
+                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">Transit Time</label>
                 <select
                   value={transitTime}
                   onChange={(e) => setTransitTime(e.target.value)}
@@ -98,6 +160,19 @@ export default function ClientDashboard({ params }: { params: { id: string } }) 
                   <option value="Counter">Counter</option>
                 </select>
                 <p className="text-[10px] text-gray-400 font-medium italic mt-1 px-1">Default channel for automated order generation.</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">
+                  Valid Till
+                </label>
+
+                <input
+                  type="datetime-local"
+                  value={validTill}
+                  onChange={(e) => setValidTill(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-300 rounded px-4 py-3 font-bold text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#1c5ba9]/50 transition-all shadow-sm"
+                />
               </div>
             </div>
 
