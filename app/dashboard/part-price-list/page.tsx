@@ -14,6 +14,7 @@ export default function PartPriceListPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [fileName, setFileName] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isFetchingFile, setIsFetchingFile] = useState(true);
 
 
   useEffect(() => {
@@ -21,6 +22,8 @@ export default function PartPriceListPage() {
     const fetchCurrentFile = async () => {
 
       try {
+
+        setIsFetchingFile(true);
 
         const token = localStorage.getItem("accessToken");
 
@@ -55,6 +58,10 @@ export default function PartPriceListPage() {
 
         setFileName("");
         setLastUploaded(null);
+
+      } finally {
+
+        setIsFetchingFile(false);
       }
     };
 
@@ -286,41 +293,57 @@ export default function PartPriceListPage() {
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 flex flex-col justify-between">
             <div>
               <h3 className="font-bold text-gray-700 mb-2 uppercase text-xs tracking-wider">Current Master File</h3>
-              <div className="flex items-center gap-3 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                <FileSpreadsheet className="text-green-600" size={32} />
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-800 text-sm">
-                    {fileName || "No file uploaded"}
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {lastUploaded && fileName
-                      ? `Last updated: ${lastUploaded.toLocaleString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                      })}`
-                      : "No file uploaded yet"}
-                  </p>
+              {isFetchingFile ? (
+
+                <div className="flex items-center justify-center bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                  <RefreshCw size={20} className="animate-spin text-[#1c5ba9]" />
+                  <span className="ml-2 text-sm text-gray-500">
+                    Fetching file details...
+                  </span>
                 </div>
 
-                {/* Delete Icon */}
-                {fileName && (
-                  isDeleting ? (
-                    <div className="w-[18px] h-[18px] border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <Trash2
-                      onClick={handleDelete}
-                      className="text-red-500 cursor-pointer hover:text-red-700"
-                      size={18}
-                    />
-                  )
-                )}
-                {fileName && lastUploaded && (
-                  <CheckCircle size={20} className="text-green-500" />
-                )}
-              </div>
+              ) : (
+
+                <div className="flex items-center gap-3 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+
+                  <FileSpreadsheet className="text-green-600" size={32} />
+
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-800 text-sm">
+                      {fileName || "No file uploaded"}
+                    </h4>
+
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {lastUploaded && fileName
+                        ? `Last updated: ${lastUploaded.toLocaleString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}`
+                        : "No file uploaded yet"}
+                    </p>
+                  </div>
+
+                  {fileName && (
+                    isDeleting ? (
+                      <div className="w-[18px] h-[18px] border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Trash2
+                        onClick={handleDelete}
+                        className="text-red-500 cursor-pointer hover:text-red-700"
+                        size={18}
+                      />
+                    )
+                  )}
+
+                  {fileName && lastUploaded && (
+                    <CheckCircle size={20} className="text-green-500" />
+                  )}
+
+                </div>
+              )}
             </div>
 
             <button
