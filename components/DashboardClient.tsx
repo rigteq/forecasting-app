@@ -60,6 +60,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const BASE_URL = "/api/backend";
 
   const activePolls = React.useRef(new Set<string>());
+  const [totalRows, setTotalRows] = useState<number>(0);
 
   useEffect(() => {
     const fetchUserConfig = async () => {
@@ -401,15 +402,29 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   }).every(c => uploadedFileIds[c.id]);
 
   if (showResults) {
+
+    // Total rows count
+    const totalRows = forecastData.length;
+
     return (
       <div className="bg-gray-50 w-full max-w-7xl mx-auto rounded-lg shadow mt-4 h-[calc(100vh-120px)] overflow-hidden flex flex-col">
+
+        {/* TOP BAR */}
         <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
-          <button
-            onClick={() => setShowResults(false)}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
-          >
-            <ArrowLeft size={20} /> Back to Dashboard
-          </button>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowResults(false)}
+              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              <ArrowLeft size={20} /> Back to Dashboard
+            </button>
+
+            {/* TOTAL COUNT */}
+            <div className="bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2 rounded-lg text-sm font-semibold">
+              Total Rows : {totalRows}
+            </div>
+          </div>
 
           <div className="flex gap-3">
 
@@ -539,9 +554,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
                         <td className="px-2 py-2 text-center">
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${item.priority === 'A' || item.priority === 'HIGH'
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${item.priority === 'A'
                               ? 'bg-red-100 text-red-700'
-                              : item.priority === 'B' || item.priority === 'MEDIUM'
+                              : item.priority === 'B'
                                 ? 'bg-yellow-100 text-yellow-700'
                                 : 'bg-green-100 text-green-700'
                               }`}

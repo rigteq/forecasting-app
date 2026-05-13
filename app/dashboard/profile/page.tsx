@@ -68,21 +68,9 @@ export default function ProfilePage() {
                             <p className="text-base font-bold text-gray-800 bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">+91 88229 91100</p>
                         </div>
 
-                        <div className="space-y-1.5 px-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-1">
-                                <ShieldCheck size={12} className="text-[#1c5ba9]" />
-                                Access Permission Tier
-                            </label>
-                            <p className="text-base font-bold text-gray-800 bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">Full Administrative Access (Master)</p>
-                        </div>
 
-                        <div className="space-y-1.5 px-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-1">
-                                <MapPin size={12} className="text-[#1c5ba9]" />
-                                Registered Region
-                            </label>
-                            <p className="text-base font-bold text-gray-800 bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">India (Western Division)</p>
-                        </div>
+
+
                     </div>
 
                     <div className="mt-16 flex justify-center md:justify-end gap-4 border-t border-gray-50 pt-10">
