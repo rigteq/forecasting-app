@@ -29,7 +29,7 @@ export default function ClientDashboard() {
 
     try {
       const res = await api.get(
-        `/api/backend/api/auth/user/${id}`,
+        `/api/auth/user/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -55,7 +55,7 @@ export default function ClientDashboard() {
 
     try {
       await api.put(
-        `/api/backend/api/auth/user/${id}`,
+        `/api/auth/user/${id}`,
         {
           forecastDays: parseInt(forecastDays),
           transitTime: parseInt(transitTime),

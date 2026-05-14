@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FileSpreadsheet, UploadCloud, X, Loader2, ArrowLeft, Download, AlertCircle, CheckCircle } from "lucide-react";
-import axios from "axios";
+import api from "@/utils/api";
 import { toast } from "react-toastify";
 
 type SummaryData = {
@@ -27,10 +27,10 @@ type FileConfig = {
 const CARDS_CONFIG: FileConfig[] = [
   { id: "No Forecast", title: "No Forecast", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "NO_FORECAST", helpText: "Required. 1 File" },
   { id: "Current Stock", title: "Current Stock", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CURRENT_STOCK", helpText: "Required. 1 File" },
-  { id: "Transit", title: "Transit", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "TRANSIT", helpText: "Required. 1 File" },
+  { id: "Transit", title: "Transit", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "TRANSIT", helpText: "Required. 1 File" },
   { id: "Back Order", title: "BackOrder", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "BACKORDER", helpText: "Required. 1 File" },
   { id: "Quarter Consumption", title: "Avg Consumption", requiredForForecast: true, adminOnly: false, multiple: true, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CONSUMPTION", helpText: "Required. 3-6 Files" },
-  { id: "Customer Order", title: "Customer Order", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CUSTOMER_ORDER", helpText: "Optional. 1 File" },
+  { id: "Customer Order", title: "Customer Order", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CUSTOMER_ORDER", helpText: "Optional. 1 File" },
 ];
 
 export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
@@ -67,8 +67,8 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
       try {
         const token = localStorage.getItem("accessToken");
 
-        const res = await axios.get(
-          `${BASE_URL}/api/auth/user/config`,
+        const res = await api.get(
+          `/api/auth/user/config`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -110,8 +110,8 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
       try {
 
-        const progressRes = await axios.get(
-          `${BASE_URL}/api/file/upload/progress/${jobId}`,
+        const progressRes = await api.get(
+          `/api/file/upload/progress/${jobId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -229,11 +229,11 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     }));
 
     try {
-      const url = `${BASE_URL}/api/file/upload/${typeMap}?uploadJobId=${jobId}`;
+      const url = `/api/file/upload/${typeMap}?uploadJobId=${jobId}`;
 
       pollProgress(jobId, cardId);
 
-      const res = await axios.post(url, formData, {
+      const res = await api.post(url, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -317,82 +317,103 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   };
 
   const handleForecast = async () => {
+
     const missing = CARDS_CONFIG.filter(c => {
       if (c.adminOnly && role !== "ADMIN") return false;
       return c.requiredForForecast && !uploadedFileIds[c.id];
     });
 
     if (missing.length > 0) {
-      toast.error(`Missing required files: ${missing.map(m => m.title).join(", ")}`);
+      toast.error(
+        `Missing required files: ${missing.map(m => m.title).join(", ")}`
+      );
       return;
     }
 
-    const token = localStorage.getItem("accessToken");
     setIsForecasting(true);
     setForecastError("");
 
     try {
-      const res = await fetch(`/api/backend/api/forecast/${jobId || "dummy-job-id"}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+
+      const res = await api.post(
+        `/api/forecast/${jobId || "dummy-job-id"}`,
+        {
           forecastDays: Number(forecastDays),
           transitTime: Number(transitTime),
           orderFor,
           stockType,
-        }),
-      });
+        }
+      );
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        throw new Error(errData?.message || "Forecast failed");
-      }
+      const data = res.data;
 
-      const data = await res.json();
       setForecastData(data.data || []);
       setSummaryData(data);
       setShowResults(true);
 
     } catch (error: any) {
-      setForecastError(error.message || "Failed to generate forecast.");
+
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to generate forecast.";
+
+      setForecastError(message);
+
     } finally {
+
       setIsForecasting(false);
     }
   };
 
   const handleDownload = async (type: string) => {
+
     if (!jobId) return;
-    const token = localStorage.getItem("accessToken");
+
     setDownloadingType(type);
+
     try {
-      const res = await fetch(`/api/backend/api/download/${type}/${jobId}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+
+      const res = await api.post(
+        `/api/download/${type}/${jobId}`,
+        {
           forecastDays: Number(forecastDays),
           transitTime: Number(transitTime),
           stockType,
-        }),
-      });
+        },
+        {
+          responseType: "blob",
+        }
+      );
 
-      if (!res.ok) throw new Error("Download failed");
+      const blob = new Blob([res.data]);
 
-      const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
+
       const a = document.createElement("a");
+
       a.href = url;
+
       a.download = `forecast.${type === "excel" ? "xlsx" : type}`;
+
+      document.body.appendChild(a);
+
       a.click();
+
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+
     } catch (err) {
+
+      console.error(err);
+
       toast.error("Download failed");
+
     } finally {
-      setDownloadingType(null); // stop loader
+
+      setDownloadingType(null);
+
     }
   };
 

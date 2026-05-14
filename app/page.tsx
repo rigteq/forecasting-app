@@ -22,7 +22,7 @@ export default function Login() {
     if (token) {
       console.log("[DEBUG - useEffect] Token found. Retrieved Role from LocalStorage:", role);
       console.log("[DEBUG - useEffect] Checking if role equals 'ROLE_ADMIN' or 'ADMIN'...");
-      
+
       if (role === "ROLE_ADMIN" || role === "ADMIN") {
         console.log("[DEBUG - useEffect] Match successful. Redirecting to /dashboard");
         router.replace("/dashboard");
@@ -37,15 +37,16 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setIsLoading(true);
-
     const BASE_URL = "/api/backend";
 
-try {
-  const res = await fetch(`${BASE_URL}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
+    try {
+      console.log("LOGIN PAYLOAD:", { username, password });
+      console.log("LOGIN URL:", `${BASE_URL}/api/auth/login`);
+      const res = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
 
       const data = await res.json();
@@ -60,7 +61,7 @@ try {
       localStorage.setItem("role", data.role);
       console.log("[DEBUG - handleSubmit] Full Login Response Data:", data);
       console.log("[DEBUG - handleSubmit] Role returned from backend:", data.role);
-      
+
       // Role-based redirect
       if (data.role === "ROLE_ADMIN" || data.role === "ADMIN") {
         console.log("[DEBUG - handleSubmit] Role matched Admin. Redirecting to /dashboard");

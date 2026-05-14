@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { UploadCloud, FileSpreadsheet, Download, RefreshCw, CheckCircle, FileText } from "lucide-react";
 import { toast } from "react-toastify";
-import axios from "axios";
+import api from "@/utils/api";
 import { Trash2 } from "lucide-react";
 
 
@@ -27,8 +27,8 @@ export default function PartPriceListPage() {
 
         const token = localStorage.getItem("accessToken");
 
-        const res = await axios.get(
-          `/api/backend/api/file/upload/current/PART_PRICE`,
+        const res = await api.get(
+          `/api/file/upload/current/PART_PRICE`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -105,8 +105,8 @@ export default function PartPriceListPage() {
 
       pollProgress(jobId);
 
-      await axios.post(
-        `/api/backend/api/file/upload/PART_PRICE?uploadJobId=${jobId}`,
+      await api.post(
+        `/api/file/upload/PART_PRICE?uploadJobId=${jobId}`,
         formData,
         {
           headers: {
@@ -138,8 +138,8 @@ export default function PartPriceListPage() {
 
       try {
 
-        const res = await axios.get(
-          `/api/backend/api/file/upload/progress/${jobId}`,
+        const res = await api.get(
+          `/api/file/upload/progress/${jobId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -199,8 +199,8 @@ export default function PartPriceListPage() {
 
       const token = localStorage.getItem("accessToken");
 
-      await axios.delete(
-        `/api/backend/api/file/upload/delete/PART_PRICE`,
+      await api.delete(
+        `/api/file/upload/delete/PART_PRICE`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -238,7 +238,7 @@ export default function PartPriceListPage() {
 
       const token = localStorage.getItem("accessToken");
 
-      const res = await axios.get(
+      const res = await api.get(
         `/api/backend/api/download/PART_PRICE`,
         {
           responseType: "blob",

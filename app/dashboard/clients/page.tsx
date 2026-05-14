@@ -58,7 +58,7 @@ export default function ClientsPage() {
 
     try {
       const res = await api.get(
-        `/api/backend/api/auth/admin/users`,
+        `/api/auth/admin/users`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -81,7 +81,7 @@ export default function ClientsPage() {
       const token = localStorage.getItem("accessToken");
 
       await api.delete(
-        `/api/backend/api/auth/admin/user/${clientId}`,
+        `/api/auth/admin/user/${clientId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -121,7 +121,7 @@ export default function ClientsPage() {
       const token = localStorage.getItem("accessToken");
 
       await api.post(
-        `/api/backend/api/auth/admin/create-user`,
+        `/api/auth/admin/create-user`,
         {
           username: formData.username,
           email: formData.email,
@@ -276,13 +276,26 @@ export default function ClientsPage() {
                     </td>
 
                     <td className="px-6 py-5 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ring-1
-          ${client.isValid
-                          ? "bg-emerald-50 text-emerald-700 ring-emerald-200/50"
-                          : "bg-red-50 text-red-700 ring-red-200/50"
-                        }`}>
-                        {client.isValid ? "Active" : "Expired"}
-                      </span>
+
+                      {(() => {
+
+                        const isExpired =
+                          client.validTill &&
+                          new Date(client.validTill) < new Date();
+
+                        return (
+                          <span
+                            className={`px-4 py-1 rounded-full text-xs font-bold uppercase
+          ${isExpired
+                                ? "bg-red-100 text-red-700"
+                                : "bg-green-100 text-green-700"
+                              }`}
+                          >
+                            {isExpired ? "EXPIRED" : "ACTIVE"}
+                          </span>
+                        );
+                      })()}
+
                     </td>
                   </tr>
                 ))}
