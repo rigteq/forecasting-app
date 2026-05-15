@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://forecasting-app-be.onrender.com";
-
+// const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://forecasting-app-be.onrender.com";
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+console.log("BACKEND_URL:", BACKEND_URL);
 const nextConfig: NextConfig = {
   async rewrites() {
     return [

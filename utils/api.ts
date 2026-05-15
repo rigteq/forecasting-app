@@ -5,15 +5,31 @@ const api = axios.create({
   baseURL: "/api/backend",
 });
 
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const message = error.response?.data?.message;
+api.interceptors.request.use((config) => {
 
-    if (message === "ACCESS_EXPIRED") {
-      localStorage.removeItem("accessToken");
-      toast.error("Your session has expired. Please login again.");
-      window.location.href = "/login";
+  const token = localStorage.getItem("accessToken");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+api.interceptors.response.use(
+
+  (response) => response,
+
+  (error) => {
+
+    // HANDLE 401
+    if (error.response?.status === 401) {
+
+      localStorage.clear();
+
+      toast.error("Session expired. Please login again.", { toastId: 'session_expired' });
+
+      window.location.href = "/";
     }
 
     return Promise.reject(error);

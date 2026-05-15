@@ -15,12 +15,13 @@ export default function ClientDashboard() {
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [clientName, setClientName] = useState("");
-  const [validTill, setValidTill] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isValid, setIsValid] = useState(true);
 
   // Client specific default values
   const [forecastDays, setForecastDays] = useState("15");
   const [transitTime, setTransitTime] = useState("7");
-  const [orderFor, setOrderFor] = useState("All Part");
 
 
 
@@ -29,7 +30,7 @@ export default function ClientDashboard() {
 
     try {
       const res = await api.get(
-        `/api/backend/api/auth/user/${id}`,
+        `/api/auth/user?id=${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -39,10 +40,11 @@ export default function ClientDashboard() {
 
       const data = res.data;
 
-      setClientName(data.username);
-      setForecastDays(String(data.forecastDays));
-      setTransitTime(String(data.transitTime));
-      setValidTill(data.validTill?.slice(0, 16) || "");
+      setClientName(data.username || "");
+      setEmail(data.email || "");
+      setIsValid(data.isValid !== false);
+      setForecastDays(String(data.forecastDays || 15));
+      setTransitTime(String(data.transitTime || 7));
       setLoading(false);
     } catch (error) {
       toast.error("Failed to load client data");
@@ -55,11 +57,14 @@ export default function ClientDashboard() {
 
     try {
       await api.put(
-        `/api/backend/api/auth/user/${id}`,
+        `/api/auth/user/${id}`,
         {
+          username: clientName,
+          email: email,
+          password: password,
+          isValid: isValid,
           forecastDays: parseInt(forecastDays),
           transitTime: parseInt(transitTime),
-          validTill: validTill
         },
         {
           headers: {
@@ -149,30 +154,46 @@ export default function ClientDashboard() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">Reorder Channel</label>
-                <select
-                  value={orderFor}
-                  onChange={(e) => setOrderFor(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-300 rounded px-4 py-3 font-bold text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#1c5ba9]/50 transition-all cursor-pointer shadow-sm"
-                >
-                  <option value="All Part">All Parts</option>
-                  <option value="Workshop">Workshop</option>
-                  <option value="Counter">Counter</option>
-                </select>
-                <p className="text-[10px] text-gray-400 font-medium italic mt-1 px-1">Default channel for automated order generation.</p>
+                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">Username</label>
+                <input
+                  type="text"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-300 rounded px-4 py-3 font-bold text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#1c5ba9]/50 transition-all shadow-sm"
+                />
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">
-                  Valid Till
-                </label>
-
+                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">Email</label>
                 <input
-                  type="datetime-local"
-                  value={validTill}
-                  onChange={(e) => setValidTill(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-300 rounded px-4 py-3 font-bold text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#1c5ba9]/50 transition-all shadow-sm"
                 />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">Password</label>
+                <input
+                  type="password"
+                  placeholder="Leave blank to keep same"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-300 rounded px-4 py-3 font-bold text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#1c5ba9]/50 transition-all shadow-sm"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-black text-gray-500 uppercase tracking-widest px-1">Is Active</label>
+                <select
+                  value={isValid ? "true" : "false"}
+                  onChange={(e) => setIsValid(e.target.value === "true")}
+                  className="w-full bg-gray-50 border border-gray-300 rounded px-4 py-3 font-bold text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#1c5ba9]/50 transition-all cursor-pointer shadow-sm"
+                >
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
               </div>
             </div>
 

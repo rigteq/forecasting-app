@@ -34,7 +34,6 @@ export default function ClientsPage() {
     password: "",
     forecastDays: "15",
     transitTime: "5",
-    validTill: "",
   });
 
   type Client = {
@@ -43,7 +42,7 @@ export default function ClientsPage() {
     forecastDays: number;
     transitTime: number;
     isValid: boolean;
-    validTill: string;
+    role: string;
   };
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -58,7 +57,7 @@ export default function ClientsPage() {
 
     try {
       const res = await api.get(
-        `/api/backend/api/auth/admin/users`,
+        `/api/auth/user`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -81,7 +80,7 @@ export default function ClientsPage() {
       const token = localStorage.getItem("accessToken");
 
       await api.delete(
-        `/api/backend/api/auth/admin/user/${clientId}`,
+        `/api/auth/admin/user/${clientId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -105,8 +104,32 @@ export default function ClientsPage() {
     }
   };
 
+  const handleToggleStatus = async (client: Client) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      await api.put(
+        `/api/auth/user/${client.id}`,
+        {
+          ...client,
+          isValid: !client.isValid
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      setClients((prev) =>
+        prev.map((c) => c.id === client.id ? { ...c, isValid: !client.isValid } : c)
+      );
+      toast.success(`Client ${client.isValid ? 'deactivated' : 'activated'} successfully`);
+    } catch (error) {
+      toast.error("Failed to update status");
+    }
+  };
+
   const filteredClients = clients.filter((client) =>
-    client.username.toLowerCase().includes(searchTerm.toLowerCase())
+    client.role !== 'ROLE_ADMIN' && client.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
 
@@ -121,15 +144,14 @@ export default function ClientsPage() {
       const token = localStorage.getItem("accessToken");
 
       await api.post(
-        `/api/backend/api/auth/admin/create-user`,
+        `/api/auth/admin/create-user`,
         {
           username: formData.username,
           email: formData.email,
           password: formData.password,
           role: "USER", // always create client as USER
           forecastDays: parseInt(formData.forecastDays),
-          transitTime: parseInt(formData.transitTime),
-          validTill: formData.validTill
+          transitTime: parseInt(formData.transitTime)
         },
         {
           headers: {
@@ -149,7 +171,6 @@ export default function ClientsPage() {
         password: "",
         forecastDays: "15",
         transitTime: "5",
-        validTill: "",
       });
     } catch (error: any) {
       setSubmitError(error.response?.data?.message || "Failed to create client. Please try again.");
@@ -202,8 +223,8 @@ export default function ClientsPage() {
                   <th className="px-6 py-4 border-r border-gray-200">Username</th>
                   <th className="px-6 py-4 border-r border-gray-200">Forecasting Days</th>
                   <th className="px-6 py-4 border-r border-gray-200">Transit Time</th>
-                  <th className="px-6 py-4 border-r border-gray-200">Valid Till</th>
-                  <th className="px-6 py-4 text-center">Status</th>
+                  <th className="px-6 py-4 border-r border-gray-200 text-center">Status</th>
+                  <th className="px-6 py-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -218,41 +239,7 @@ export default function ClientsPage() {
                     </td>
 
                     <td className="px-6 py-5 border-r border-gray-100 font-bold text-gray-800">
-                      <div className="flex items-center justify-between gap-3">
-
-                        <span>{client.username}</span>
-
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/dashboard/clients/${client.id}`);
-                            }}
-                            className="p-1.5 rounded hover:bg-blue-100 text-[#1c5ba9]"
-                          >
-                            <Pencil size={16} />
-                          </button>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteClientId(client.id);
-                              setDeleteClientName(client.username);
-                            }}
-                            disabled={deletingId === client.id}
-                            className="p-1.5 rounded hover:bg-red-100 text-red-500 disabled:opacity-50"
-                          >
-                            {deletingId === client.id ? (
-                              <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                              <Trash2 size={16} />
-                            )}
-                          </button>
-
-
-                        </div>
-                      </div>
+                      <span>{client.username}</span>
                     </td>
 
                     <td className="px-6 py-5 border-r border-gray-100 font-semibold text-gray-600">
@@ -263,26 +250,48 @@ export default function ClientsPage() {
                       {client.transitTime} Days
                     </td>
 
-                    <td className="px-6 py-5 border-r border-gray-100 font-semibold text-gray-600">
-                      {client.validTill
-                        ? new Date(client.validTill).toLocaleString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                        : "N/A"}
+                    <td className="px-6 py-5 border-r border-gray-100 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleStatus(client);
+                        }}
+                        className={`px-4 py-1 rounded-full text-xs font-bold uppercase transition-colors
+                          ${client.isValid
+                            ? "bg-green-100 text-green-700 hover:bg-green-200"
+                            : "bg-red-100 text-red-700 hover:bg-red-200"
+                          }`}
+                      >
+                        {client.isValid ? "ACTIVE" : "INACTIVE"}
+                      </button>
                     </td>
-
                     <td className="px-6 py-5 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ring-1
-          ${client.isValid
-                          ? "bg-emerald-50 text-emerald-700 ring-emerald-200/50"
-                          : "bg-red-50 text-red-700 ring-red-200/50"
-                        }`}>
-                        {client.isValid ? "Active" : "Expired"}
-                      </span>
+                      <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/dashboard/clients/${client.id}`);
+                          }}
+                          className="p-1.5 rounded hover:bg-blue-100 text-[#1c5ba9]"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteClientId(client.id);
+                            setDeleteClientName(client.username);
+                          }}
+                          disabled={deletingId === client.id}
+                          className="p-1.5 rounded hover:bg-red-100 text-red-500 disabled:opacity-50"
+                        >
+                          {deletingId === client.id ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -318,7 +327,7 @@ export default function ClientsPage() {
               )}
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Company Name / Username</label>
+                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Username</label>
                 <input
                   type="text"
                   name="username"
@@ -401,17 +410,6 @@ export default function ClientsPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Valid Till</label>
-                <input
-                  type="datetime-local"
-                  name="validTill"
-                  required
-                  value={formData.validTill}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#1c5ba9]/50 focus:border-[#1c5ba9] transition-colors outline-none text-sm font-medium"
-                />
-              </div>
 
               <div className="mt-4 flex gap-3 pt-4 border-t border-gray-100">
                 <button
