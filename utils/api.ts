@@ -27,7 +27,7 @@ api.interceptors.response.use(
 
       localStorage.clear();
 
-      toast.error("Session expired. Please login again.");
+      toast.error("Session expired. Please login again.", { toastId: 'session_expired' });
 
       window.location.href = "/";
     }

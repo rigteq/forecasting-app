@@ -93,6 +93,7 @@ export default function Login() {
                 width={250}
                 height={120}
                 className="object-contain"
+                style={{ width: "auto", height: "auto" }}
                 priority
               />
             </div>
@@ -115,6 +116,7 @@ export default function Login() {
                 width={180}
                 height={80}
                 className="object-contain"
+                style={{ width: "auto", height: "auto" }}
                 priority
               />
             </div>

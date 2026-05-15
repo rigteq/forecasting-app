@@ -239,7 +239,7 @@ export default function PartPriceListPage() {
       const token = localStorage.getItem("accessToken");
 
       const res = await api.get(
-        `/api/backend/api/download/PART_PRICE`,
+        `/api/download/PART_PRICE`,
         {
           responseType: "blob",
           headers: { Authorization: `Bearer ${token}` }
@@ -252,7 +252,7 @@ export default function PartPriceListPage() {
 
       link.href = url;
 
-      link.setAttribute("download", fileName || "part_price.xlsx");
+      link.setAttribute("download", "PartPriceFile.xlsx");
 
       document.body.appendChild(link);
 

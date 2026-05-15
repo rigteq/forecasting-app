@@ -23,7 +23,6 @@ type ProfileData = {
     transitTime: number;
     isValid: boolean;
     createdBy: string;
-    validTill: string;
     createdDate: string;
 };
 
@@ -43,7 +42,7 @@ export default function ProfilePage() {
                 const token = localStorage.getItem("accessToken");
 
                 const res = await axios.get(
-                    `${BASE_URL}/api/profile`,
+                    `${BASE_URL}/api/auth/profile`,
                     {
                         headers: {
                             Authorization: `Bearer ${token}`,
@@ -63,6 +62,36 @@ export default function ProfilePage() {
         fetchProfile();
 
     }, []);
+
+    const [isEditing, setIsEditing] = useState(false);
+    const [editData, setEditData] = useState({ username: '', email: '', password: '' });
+
+    const handleEdit = () => {
+        setEditData({ username: profile?.username || '', email: profile?.email || '', password: '' });
+        setIsEditing(true);
+    };
+
+    const handleSave = async () => {
+        try {
+            const token = localStorage.getItem("accessToken");
+            await axios.put(
+                `${BASE_URL}/api/auth/user/${profile?.id}`,
+                {
+                    username: editData.username,
+                    email: editData.email,
+                    password: editData.password
+                },
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+            setProfile(prev => prev ? { ...prev, username: editData.username, email: editData.email } : null);
+            setIsEditing(false);
+            alert("Profile updated successfully");
+        } catch (error) {
+            alert("Failed to update profile");
+        }
+    };
 
     if (loading) {
         return (
@@ -94,24 +123,20 @@ export default function ProfilePage() {
 
                     <div className="flex-grow text-center md:text-left">
 
-                        <h2 className="text-2xl font-bold text-gray-900">
-                            {profile?.username}
-                        </h2>
+                        {isEditing ? (
+                            <input type="text" className="text-2xl font-bold text-gray-900 border rounded px-2 w-full max-w-xs mb-2" value={editData.username} onChange={e => setEditData({...editData, username: e.target.value})} />
+                        ) : (
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                                {profile?.username}
+                            </h2>
+                        )}
 
-                        <p className="text-gray-500 mt-2 flex items-center gap-2 justify-center md:justify-start">
-
-                            <ShieldCheck size={18} className="text-[#1c5ba9]" />
-
-                            <span
-                                className={`px-3 py-1 rounded-full text-sm font-bold text-white ${profile?.role === "ROLE_ADMIN"
-                                        ? "bg-green-600"
-                                        : "bg-green-600"
-                                    }`}
-                            >
-                                {profile?.role === "ROLE_ADMIN" ? "ADMIN" : "USER"}
+                        <div className="flex items-center justify-center md:justify-start gap-2">
+                            <ShieldCheck size={16} className="text-[#1c5ba9]" />
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold text-white bg-green-600 tracking-wide uppercase">
+                                {profile?.role === "ROLE_ADMIN" || profile?.role === "ADMIN" ? "ADMIN" : "USER"}
                             </span>
-
-                        </p>
+                        </div>
 
                     </div>
 
@@ -131,28 +156,25 @@ export default function ProfilePage() {
                         </label>
 
                         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
-                            {profile?.email}
+                            {isEditing ? (
+                                <input type="email" className="w-full bg-white border rounded px-2 py-1" value={editData.email} onChange={e => setEditData({...editData, email: e.target.value})} />
+                            ) : (
+                                profile?.email
+                            )}
                         </div>
                     </div>
 
-                    {/* ROLE */}
-                    <div>
-                        <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-
-                            <ShieldCheck size={14} className="text-[#1c5ba9]" />
-
-                            Role
-
-                        </label>
-
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
-                            {profile?.role}
+                    {isEditing && (
+                        <div>
+                            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+                                <ShieldCheck size={14} className="text-[#1c5ba9]" />
+                                New Password
+                            </label>
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
+                                <input type="password" placeholder="Leave blank to keep same" className="w-full bg-white border rounded px-2 py-1" value={editData.password} onChange={e => setEditData({...editData, password: e.target.value})} />
+                            </div>
                         </div>
-                    </div>
-
-                    {/* ONLY USER CAN SEE BELOW DETAILS */}
-                    {profile?.role !== "ROLE_ADMIN" && (
-                        <>
+                    )}
                             {/* FORECAST DAYS */}
                             <div>
                                 <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
@@ -223,53 +245,26 @@ export default function ProfilePage() {
                                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
 
                                     {profile?.createdDate
-                                        ? new Date(profile.createdDate).toLocaleDateString("en-GB").replace(/\//g, "-")
+                                        ? new Date(profile.createdDate).toLocaleDateString("en-GB").split("/").join("-")
                                         : "-"}
 
                                 </div>
                             </div>
-
-                            {/* VALID TILL */}
-                            <div>
-                                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-
-                                    <CalendarDays size={14} className="text-[#1c5ba9]" />
-
-                                    Valid Till
-
-                                </label>
-
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
-
-                                    {profile?.validTill
-                                        ? new Date(profile.validTill).toLocaleDateString("en-GB").replace(/\//g, "-")
-                                        : "-"}
-
-                                </div>
-                            </div>
-                        </>
-                    )}
+                        </div>
 
                     {/* BUTTONS */}
                     <div className="mt-14 flex justify-end gap-4 border-t border-gray-100 pt-8">
-
-                        {/* <button className="px-6 py-2.5 border border-[#1c5ba9] text-[#1c5ba9] rounded-lg font-semibold hover:bg-blue-50 transition-all">
-
-                            Update Password
-
-                        </button>
-
-                        <button className="px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow">
-
-                            Save Changes
-
-                        </button> */}
-
+                        {isEditing ? (
+                            <>
+                                <button onClick={handleSave} className="px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow">Save Changes</button>
+                                <button onClick={() => setIsEditing(false)} className="px-6 py-2.5 border border-gray-300 text-gray-600 rounded-lg font-semibold hover:bg-gray-50 transition-all">Cancel</button>
+                            </>
+                        ) : (
+                            <button onClick={handleEdit} className="px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow">Edit Profile</button>
+                        )}
                     </div>
 
                 </div>
-
-            </div>
 
         </main>
     );

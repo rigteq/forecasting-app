@@ -25,12 +25,13 @@ type FileConfig = {
 };
 
 const CARDS_CONFIG: FileConfig[] = [
-  { id: "No Forecast", title: "No Forecast", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "NO_FORECAST", helpText: "Required. 1 File" },
+  { id: "No Forecast", title: "No Forecast", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "NO_FORECAST", helpText: "Optional. 1 File" },
   { id: "Current Stock", title: "Current Stock", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CURRENT_STOCK", helpText: "Required. 1 File" },
-  { id: "Transit", title: "Transit", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "TRANSIT", helpText: "Required. 1 File" },
-  { id: "Back Order", title: "BackOrder", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "BACKORDER", helpText: "Required. 1 File" },
+  { id: "Transit", title: "Transit", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "TRANSIT", helpText: "Optional. 1 File" },
+  { id: "Back Order", title: "BackOrder", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "BACKORDER", helpText: "Optional. 1 File" },
   { id: "Quarter Consumption", title: "Avg Consumption", requiredForForecast: true, adminOnly: false, multiple: true, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CONSUMPTION", helpText: "Required. 3-6 Files" },
-  { id: "Customer Order", title: "Customer Order", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CUSTOMER_ORDER", helpText: "Optional. 1 File" },
+  { id: "Customer Order", title: "Customer Order", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CUSTOMER_ORDER", helpText: "Optional. 1 File" },
+  { id: "Purchase Order", title: "Purchase Order", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "PURCHASE_ORDER", helpText: "Optional. 1 File" },
 ];
 
 export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
@@ -44,8 +45,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const [forecastDays, setForecastDays] = useState<string>("7");
   const [transitTime, setTransitTime] = useState<string>("5");
 
-  const [orderFor, setOrderFor] = useState("All");
-  const [stockType, setStockType] = useState("Below Safety Stock");
+
 
   const [jobId] = useState<string>(crypto.randomUUID());
 
@@ -62,39 +62,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const activePolls = React.useRef(new Set<string>());
   const [totalRows, setTotalRows] = useState<number>(0);
 
-  useEffect(() => {
-    const fetchUserConfig = async () => {
-      try {
-        const token = localStorage.getItem("accessToken");
 
-        const res = await api.get(
-          `/api/auth/user/config`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-
-        const data = res.data;
-
-        if (data) {
-          setForecastDays(String(data.forecastDays ?? "7"));
-          setTransitTime(String(data.transitTime ?? "5"));
-        } else {
-          setForecastDays("7");
-          setTransitTime("5");
-        }
-
-      } catch (err) {
-        console.error("Failed to load config", err);
-
-        // fallback values (VERY IMPORTANT)
-        setForecastDays("7");
-        setTransitTime("5");
-      }
-    };
-
-    fetchUserConfig();
-  }, []);
 
 
   const pollProgress = async (jobId: string, cardId: string) => {
@@ -252,11 +220,6 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         }
       });
 
-      // AFTER FILE UPLOAD START BACKEND PROCESS POLLING
-
-
-
-
       const data = res.data;
 
       setUploadedFileIds((prev) => ({
@@ -340,8 +303,6 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         {
           forecastDays: Number(forecastDays),
           transitTime: Number(transitTime),
-          orderFor,
-          stockType,
         }
       );
 
@@ -379,7 +340,6 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         {
           forecastDays: Number(forecastDays),
           transitTime: Number(transitTime),
-          stockType,
         },
         {
           responseType: "blob",
@@ -404,6 +364,8 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
       window.URL.revokeObjectURL(url);
 
+      toast.success("Downloaded successfully");
+
     } catch (err) {
 
       console.error(err);
@@ -420,7 +382,12 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const allRequiredUploaded = CARDS_CONFIG.filter(c => {
     if (c.adminOnly && role !== "ADMIN") return false;
     return c.requiredForForecast;
-  }).every(c => uploadedFileIds[c.id]);
+  }).every(c => {
+    if (c.id === "Quarter Consumption") {
+      return uploadedFileIds[c.id] && (tabData[c.id]?.length >= 3 && tabData[c.id]?.length <= 6);
+    }
+    return uploadedFileIds[c.id];
+  });
 
   if (showResults) {
 
@@ -659,9 +626,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
                     <span className="text-[11px] font-medium">Uploading {uploadProgress[config.id]}%</span>
                   </div>
                 ) : files.length > 0 ? (
-                  <div className="w-full flex flex-col gap-1.5 max-h-[140px] overflow-y-auto px-1 z-10 custom-scrollbar">
+                  <div className="w-full flex flex-col gap-1.5 max-h-[140px] overflow-y-auto px-1 z-10 custom-scrollbar pointer-events-none">
                     {files.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-white border border-gray-200 p-1.5 rounded shadow-sm text-xs shrink-0">
+                      <div key={idx} className="flex items-center justify-between bg-white border border-gray-200 p-1.5 rounded shadow-sm text-xs shrink-0 pointer-events-auto">
                         <span className="truncate flex-1 text-gray-700 pr-2">{file.name}</span>
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveSingleFile(config.id, idx); }}
@@ -672,7 +639,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
                       </div>
                     ))}
                     {config.multiple && files.length < 6 && (
-                      <div className="text-center mt-1 pointer-events-none shrink-0">
+                      <div className="text-center mt-1 shrink-0">
                         <span className="text-[#1c5ba9] text-[10px] font-semibold underline">Add more ({files.length}/6)</span>
                       </div>
                     )}
@@ -692,84 +659,47 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
       {/* Sticky Controls Footer */}
       <div className="flex-shrink-0 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky bottom-0 z-10">
-        <div className="grid gap-4 items-end grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {(role === "ADMIN" || role === "USER") && (
-            <>
+        <div className={`flex items-end gap-6 ${role === "ADMIN" ? "justify-between" : "justify-center"}`}>
+          {role === "ADMIN" && (
+            <div className="flex gap-6">
               {/* Forecasting Days */}
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 w-40">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                   Forecasting Days
                 </label>
-
-                {role === "ADMIN" ? (
-                  <select
-                    value={forecastDays}
-                    onChange={(e) => setForecastDays(e.target.value)}
-                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
-                  >
-                    <option value="7">7 Days</option>
-                    <option value="10">10 Days</option>
-                    <option value="15">15 Days</option>
-                    <option value="21">21 Days</option>
-                  </select>
-                ) : (
-                  <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
-                    {forecastDays} Days
-                  </div>
-                )}
+                <select
+                  value={forecastDays}
+                  onChange={(e) => setForecastDays(e.target.value)}
+                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none w-full"
+                >
+                  <option value="7">7 Days</option>
+                  <option value="10">10 Days</option>
+                  <option value="15">15 Days</option>
+                  <option value="21">21 Days</option>
+                </select>
               </div>
 
               {/* Transit Time */}
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 w-40">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                   Transit Time
                 </label>
-
-                {role === "ADMIN" ? (
-                  <select
-                    value={transitTime}
-                    onChange={(e) => setTransitTime(e.target.value)}
-                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
-                  >
-                    <option value="3">3 Days</option>
-                    <option value="5">5 Days</option>
-                    <option value="7">7 Days</option>
-                    <option value="10">10 Days</option>
-                  </select>
-                ) : (
-                  <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
-                    {transitTime} Days
-                  </div>
-                )}
+                <select
+                  value={transitTime}
+                  onChange={(e) => setTransitTime(e.target.value)}
+                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none w-full"
+                >
+                  <option value="3">3 Days</option>
+                  <option value="5">5 Days</option>
+                  <option value="7">7 Days</option>
+                  <option value="10">10 Days</option>
+                </select>
               </div>
-
-              {/* Order For */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                  Order For
-                </label>
-
-                {role === "ADMIN" ? (
-                  <select
-                    value={orderFor}
-                    onChange={(e) => setOrderFor(e.target.value)}
-                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm font-medium focus:ring-1 focus:ring-[#1c5ba9] focus:outline-none"
-                  >
-                    <option value="All">All</option>
-                    <option value="Workshop">Workshop</option>
-                    <option value="Counter">Counter</option>
-                  </select>
-                ) : (
-                  <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded text-gray-700 text-sm">
-                    {orderFor}
-                  </div>
-                )}
-              </div>
-            </>
+            </div>
           )}
 
           {/* Button */}
-          <div className={`flex items-end h-full w-full ${role !== "ADMIN" ? "justify-center" : ""}`}>
+          <div className={`${role === "ADMIN" ? "flex-1 max-w-sm" : "w-64"}`}>
             <button
               onClick={handleForecast}
               disabled={!allRequiredUploaded || isForecasting}
