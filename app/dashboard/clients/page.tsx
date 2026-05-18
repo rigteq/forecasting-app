@@ -57,7 +57,7 @@ export default function ClientsPage() {
 
     try {
       const res = await api.get(
-        `/api/auth/user`,
+        `/api/auth/user?all=true`,
         {
           headers: {
             Authorization: `Bearer ${token}`

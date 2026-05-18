@@ -17,56 +17,41 @@ export default function PartPriceListPage() {
   const [isFetchingFile, setIsFetchingFile] = useState(true);
 
 
-  useEffect(() => {
-
-    const fetchCurrentFile = async () => {
-
-      try {
-
-        setIsFetchingFile(true);
-
-        const token = localStorage.getItem("accessToken");
-
-        const res = await api.get(
-          `/api/file/upload/current/PART_PRICE`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (res.data?.fileName) {
-
-          setFileName(res.data.fileName);
-
-          setLastUploaded(
-            res.data.createdDate
-              ? new Date(res.data.createdDate)
-              : null
-          );
-
-        } else {
-
-          setFileName("");
-          setLastUploaded(null);
+  const fetchCurrentFile = async () => {
+    try {
+      setIsFetchingFile(true);
+      const token = localStorage.getItem("accessToken");
+      const res = await api.get(
+        `/api/file/upload/current/PART_PRICE`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
+      );
 
-      } catch (error) {
-
-        console.log("No file found");
-
+      if (res.data?.fileName) {
+        setFileName(res.data.fileName);
+        setLastUploaded(
+          res.data.createdDate
+            ? new Date(res.data.createdDate)
+            : null
+        );
+      } else {
         setFileName("");
         setLastUploaded(null);
-
-      } finally {
-
-        setIsFetchingFile(false);
       }
-    };
+    } catch (error) {
+      console.log("No file found");
+      setFileName("");
+      setLastUploaded(null);
+    } finally {
+      setIsFetchingFile(false);
+    }
+  };
 
+  useEffect(() => {
     fetchCurrentFile();
-
   }, []);
 
   useEffect(() => {
@@ -118,7 +103,11 @@ export default function PartPriceListPage() {
       setFileName(file.name);
       setLastUploaded(new Date());
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to upload part price list");
+      const isProxyTimeout = error.response?.status === 500 && !error.response?.data?.message;
+      if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || error.response?.status === 504 || isProxyTimeout) {
+      } else {
+        toast.error(error.response?.data?.message || "Failed to upload part price list");
+      }
     } finally {
       e.target.value = "";
     }
@@ -168,6 +157,9 @@ export default function PartPriceListPage() {
           toast.success("Upload Completed", {
             toastId: `part-price-upload-success`,
           });
+
+          // Fetch the updated file details
+          fetchCurrentFile();
         }
 
       } catch (err) {
