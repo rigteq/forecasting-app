@@ -19,7 +19,6 @@ export default function ClientDashboard() {
   const [password, setPassword] = useState("");
   const [isValid, setIsValid] = useState(true);
 
-  // Client specific default values
   const [forecastDays, setForecastDays] = useState("15");
   const [transitTime, setTransitTime] = useState("7");
 

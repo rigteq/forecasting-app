@@ -81,7 +81,6 @@ export default function PartPriceListPage() {
     const token = localStorage.getItem("accessToken");
 
     try {
-      // Assuming same endpoint structure
       const jobId = crypto.randomUUID();
 
       localStorage.setItem("partPriceUploadJobId", jobId);
@@ -116,7 +115,6 @@ export default function PartPriceListPage() {
 
   const pollProgress = async (jobId: string) => {
 
-    // prevent duplicate polling
     if (activePolls.has(jobId)) return;
 
     activePolls.add(jobId);
@@ -158,7 +156,6 @@ export default function PartPriceListPage() {
             toastId: `part-price-upload-success`,
           });
 
-          // Fetch the updated file details
           fetchCurrentFile();
         }
 
@@ -218,7 +215,6 @@ export default function PartPriceListPage() {
 
   const handleDownload = async () => {
 
-    // No file uploaded
     if (!fileName || !lastUploaded) {
       toast.error("No file available to download");
       return;
