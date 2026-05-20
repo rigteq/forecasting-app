@@ -37,6 +37,7 @@ const CARDS_CONFIG: FileConfig[] = [
 export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const router = useRouter();
 
+  const [jobId, setJobId] = useState<string>("");
   const [uploadedFileIds, setUploadedFileIds] = useState<Record<string, string>>({});
   const [tabData, setTabData] = useState<Record<string, File[]>>({});
   const [uploadingState, setUploadingState] = useState<Record<string, boolean>>({});
@@ -59,6 +60,18 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
   const activePolls = React.useRef(new Set<string>());
   const [totalRows, setTotalRows] = useState<number>(0);
+
+  useEffect(() => {
+    setJobId(crypto.randomUUID());
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (jobId) {
+        api.delete(`/api/file/upload/clean/${jobId}`).catch(() => {});
+      }
+    };
+  }, [jobId]);
 
 
 
@@ -187,10 +200,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     }));
 
     try {
-      const uploadJobId = crypto.randomUUID();
-      const url = `/api/file/upload/${typeMap}?uploadJobId=${uploadJobId}`;
+      const url = `/api/file/upload/${typeMap}?uploadJobId=${jobId}`;
 
-      pollProgress(uploadJobId, cardId);
+      pollProgress(jobId, cardId);
 
       const res = await api.post(url, formData, {
         onUploadProgress: (progressEvent) => {
@@ -210,7 +222,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
       setUploadedFileIds((prev) => ({
         ...prev,
-        [cardId]: uploadJobId,
+        [cardId]: jobId,
       }));
 
 
@@ -307,6 +319,10 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         "Failed to generate forecast.";
 
       setForecastError(message);
+      setUploadedFileIds({});
+      setTabData({});
+      setUploadingState({});
+      setUploadProgress({});
 
     } finally {
 
@@ -408,7 +424,17 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setShowResults(false)}
+              onClick={() => {
+                if (jobId) {
+                  api.delete(`/api/file/upload/clean/${jobId}`).catch(() => {});
+                }
+                setUploadedFileIds({});
+                setTabData({});
+                setUploadingState({});
+                setUploadProgress({});
+                setJobId(crypto.randomUUID());
+                setShowResults(false);
+              }}
               className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
             >
               <ArrowLeft size={20} /> Back to Dashboard
