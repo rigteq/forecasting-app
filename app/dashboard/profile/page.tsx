@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "@/utils/api";
 import {
     Mail,
     ShieldCheck,
@@ -41,16 +41,9 @@ export default function ProfilePage() {
 
                 const token = localStorage.getItem("accessToken");
 
-                const res = await axios.get(
-                    `${BASE_URL}/api/auth/profile`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }
-                );
-
-                setProfile(res.data);
+                const res = await api.get("/api/auth/profile");
+                const profileData = res.data?.data ?? res.data;
+                setProfile(profileData);
 
             } catch (error) {
                 console.error("Failed to load profile", error);
@@ -73,16 +66,12 @@ export default function ProfilePage() {
 
     const handleSave = async () => {
         try {
-            const token = localStorage.getItem("accessToken");
-            await axios.put(
-                `${BASE_URL}/api/auth/user/${profile?.id}`,
+            await api.put(
+                `/api/auth/user/${profile?.id}`,
                 {
                     username: editData.username,
                     email: editData.email,
                     password: editData.password
-                },
-                {
-                    headers: { Authorization: `Bearer ${token}` }
                 }
             );
             setProfile(prev => prev ? { ...prev, username: editData.username, email: editData.email } : null);

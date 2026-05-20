@@ -1,16 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { History, CalendarDays, Box, IndianRupee, Download } from "lucide-react";
+import { History, CalendarDays, Download } from "lucide-react";
 import api from "@/utils/api";
 
 type ForecastHistory = {
   id: string;
   jobId: string;
-  totalCost: number;
-  totalParts: number;
-  totalQuantity: number;
-  highPriorityParts: number;
   createdDate: string;
   username?: string;
 };
@@ -26,7 +22,10 @@ export default function HistoryPage() {
         const res = await api.get("/api/forecast/history", {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setHistory(res.data);
+        // Unpack from UserResponse wrapper
+        const responseData = res.data;
+        const historyData = responseData?.data ?? responseData;
+        setHistory(Array.isArray(historyData) ? historyData : []);
       } catch (error) {
         console.error("Failed to load history", error);
       } finally {
@@ -41,7 +40,7 @@ export default function HistoryPage() {
       const token = localStorage.getItem("accessToken");
       const res = await api.post(
         `/api/download/excel/${jobId}`,
-        { forecastDays: 15, transitTime: 7 }, // Defaults, won't be used since history has own data
+        { forecastDays: 15, transitTime: 7 },
         {
           headers: { Authorization: `Bearer ${token}` },
           responseType: "blob",
@@ -51,7 +50,7 @@ export default function HistoryPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `forecast_${jobId.slice(0,8)}.xlsx`;
+      a.download = `forecast_${jobId.slice(0, 8)}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -95,23 +94,18 @@ export default function HistoryPage() {
                   </button>
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 flex items-center gap-2"><Box size={16} className="text-[#1c5ba9]"/> Total Parts</span>
-                  <span className="font-bold text-gray-900">{item.totalParts}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 flex items-center gap-2"><Box size={16} className="text-[#1c5ba9]"/> Total Qty</span>
-                  <span className="font-bold text-gray-900">{item.totalQuantity}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 flex items-center gap-2"><IndianRupee size={16} className="text-[#1c5ba9]"/> Total Cost</span>
-                  <span className="font-bold text-gray-900 font-mono">₹{item.totalCost?.toLocaleString()}</span>
+                  <span className="text-sm text-gray-600">Forecast Job</span>
+                  <span className="font-semibold text-gray-900 font-mono">{item.jobId.slice(0, 8).toUpperCase()}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                  <span className="text-xs font-bold uppercase tracking-widest text-red-500">High Priority (A)</span>
-                  <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">{item.highPriorityParts}</span>
+                  <span className="text-sm text-gray-600">Status</span>
+                  <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-green-600 bg-green-50 px-2 py-1 rounded">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                    Completed
+                  </span>
                 </div>
               </div>
             </div>

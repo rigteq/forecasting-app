@@ -33,11 +33,20 @@ export default function Login() {
     }
   }, [router]);
 
+  const clearAuthStorage = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("role");
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
     const BASE_URL = "/api/backend";
+
+    // Clear any stale or malformed auth values before login
+    clearAuthStorage();
 
     try {
       console.log("LOGIN PAYLOAD:", { username, password });
@@ -49,17 +58,23 @@ export default function Login() {
       });
 
 
-      const data = await res.json();
+      const payload = await res.json();
+      const data = payload.data;
 
       if (!res.ok) {
-        setError(data.message || data.error || "Login failed");
+        setError(payload.message || payload.error || "Login failed");
+        return;
+      }
+
+      if (!data) {
+        setError("Unexpected login response from server.");
         return;
       }
 
       localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("refreshToken", data.refreshToken);
       localStorage.setItem("role", data.role);
-      console.log("[DEBUG - handleSubmit] Full Login Response Data:", data);
+      console.log("[DEBUG - handleSubmit] Full Login Response Payload:", payload);
       console.log("[DEBUG - handleSubmit] Role returned from backend:", data.role);
 
       // Role-based redirect

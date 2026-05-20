@@ -29,16 +29,8 @@ export default function ClientDashboard() {
     const token = localStorage.getItem("accessToken");
 
     try {
-      const res = await api.get(
-        `/api/auth/user?id=${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = res.data;
+      const res = await api.get(`/api/auth/user?id=${id}`);
+      const data = res.data?.data ?? res.data;
 
       setClientName(data.username || "");
       setEmail(data.email || "");
@@ -65,11 +57,6 @@ export default function ClientDashboard() {
           isValid: isValid,
           forecastDays: parseInt(forecastDays),
           transitTime: parseInt(transitTime),
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
         }
       );
 

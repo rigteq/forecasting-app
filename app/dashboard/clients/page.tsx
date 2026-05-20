@@ -65,7 +65,8 @@ export default function ClientsPage() {
         }
       );
 
-      setClients(res.data);
+      const users = res.data?.data;
+      setClients(Array.isArray(users) ? users : []);
     } catch (error) {
       toast.error("Failed to load clients");
     }

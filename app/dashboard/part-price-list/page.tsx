@@ -27,25 +27,16 @@ export default function PartPriceListPage() {
 
         const token = localStorage.getItem("accessToken");
 
-        const res = await api.get(
-          `/api/file/upload/current/PART_PRICE`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const res = await api.get(`/api/file/upload/current/PART_PRICE`);
+        const details = res.data?.data ?? res.data;
 
-        if (res.data?.fileName) {
-
-          setFileName(res.data.fileName);
-
+        if (details?.fileName) {
+          setFileName(details.fileName);
           setLastUploaded(
-            res.data.createdDate
-              ? new Date(res.data.createdDate)
+            details.createdDate
+              ? new Date(details.createdDate)
               : null
           );
-
         } else {
 
           setFileName("");
@@ -120,6 +111,7 @@ export default function PartPriceListPage() {
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to upload part price list");
     } finally {
+      setIsUploading(false);
       e.target.value = "";
     }
   };
