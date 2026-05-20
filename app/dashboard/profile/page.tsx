@@ -42,7 +42,7 @@ export default function ProfilePage() {
                 const token = localStorage.getItem("accessToken");
 
                 const res = await axios.get(
-                    `${BASE_URL}/api/auth/profile`,
+                    `${BASE_URL}/api/auth/user`,
                     {
                         headers: {
                             Authorization: `Bearer ${token}`,
@@ -124,7 +124,7 @@ export default function ProfilePage() {
                     <div className="flex-grow text-center md:text-left">
 
                         {isEditing ? (
-                            <input type="text" className="text-2xl font-bold text-gray-900 border rounded px-2 w-full max-w-xs mb-2" value={editData.username} onChange={e => setEditData({...editData, username: e.target.value})} />
+                            <input type="text" className="text-2xl font-bold text-gray-900 border rounded px-2 w-full max-w-xs mb-2" value={editData.username} onChange={e => setEditData({ ...editData, username: e.target.value })} />
                         ) : (
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">
                                 {profile?.username}
@@ -157,7 +157,7 @@ export default function ProfilePage() {
 
                         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
                             {isEditing ? (
-                                <input type="email" className="w-full bg-white border rounded px-2 py-1" value={editData.email} onChange={e => setEditData({...editData, email: e.target.value})} />
+                                <input type="email" className="w-full bg-white border rounded px-2 py-1" value={editData.email} onChange={e => setEditData({ ...editData, email: e.target.value })} />
                             ) : (
                                 profile?.email
                             )}
@@ -171,100 +171,100 @@ export default function ProfilePage() {
                                 New Password
                             </label>
                             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
-                                <input type="password" placeholder="Leave blank to keep same" className="w-full bg-white border rounded px-2 py-1" value={editData.password} onChange={e => setEditData({...editData, password: e.target.value})} />
+                                <input type="password" placeholder="Leave blank to keep same" className="w-full bg-white border rounded px-2 py-1" value={editData.password} onChange={e => setEditData({ ...editData, password: e.target.value })} />
                             </div>
                         </div>
                     )}
-                            {/* FORECAST DAYS */}
-                            <div>
-                                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+                    {/* FORECAST DAYS */}
+                    <div>
+                        <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
 
-                                    <CalendarDays size={14} className="text-[#1c5ba9]" />
+                            <CalendarDays size={14} className="text-[#1c5ba9]" />
 
-                                    Forecast Days
+                            Forecast Days
 
-                                </label>
+                        </label>
 
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
-                                    {profile?.forecastDays} Days
-                                </div>
-                            </div>
-
-                            {/* TRANSIT TIME */}
-                            <div>
-                                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-
-                                    <Clock3 size={14} className="text-[#1c5ba9]" />
-
-                                    Transit Time
-
-                                </label>
-
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
-                                    {profile?.transitTime} Days
-                                </div>
-                            </div>
-
-                            {/* STATUS */}
-                            <div>
-                                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-
-                                    <User size={14} className="text-[#1c5ba9]" />
-
-                                    Account Status
-
-                                </label>
-
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800 flex items-center gap-2">
-
-                                    {profile?.isValid ? (
-                                        <>
-                                            <CheckCircle size={18} className="text-green-600" />
-                                            Active
-                                        </>
-                                    ) : (
-                                        <>
-                                            <XCircle size={18} className="text-red-600" />
-                                            Inactive
-                                        </>
-                                    )}
-
-                                </div>
-                            </div>
-
-                            {/* CREATED DATE */}
-                            <div>
-                                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-
-                                    <CalendarDays size={14} className="text-[#1c5ba9]" />
-
-                                    Created Date
-
-                                </label>
-
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
-
-                                    {profile?.createdDate
-                                        ? new Date(profile.createdDate).toLocaleDateString("en-GB").split("/").join("-")
-                                        : "-"}
-
-                                </div>
-                            </div>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
+                            {profile?.forecastDays} Days
                         </div>
-
-                    {/* BUTTONS */}
-                    <div className="mt-14 flex justify-end gap-4 border-t border-gray-100 pt-8">
-                        {isEditing ? (
-                            <>
-                                <button onClick={handleSave} className="px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow">Save Changes</button>
-                                <button onClick={() => setIsEditing(false)} className="px-6 py-2.5 border border-gray-300 text-gray-600 rounded-lg font-semibold hover:bg-gray-50 transition-all">Cancel</button>
-                            </>
-                        ) : (
-                            <button onClick={handleEdit} className="px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow">Edit Profile</button>
-                        )}
                     </div>
 
+                    {/* TRANSIT TIME */}
+                    <div>
+                        <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+
+                            <Clock3 size={14} className="text-[#1c5ba9]" />
+
+                            Transit Time
+
+                        </label>
+
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
+                            {profile?.transitTime} Days
+                        </div>
+                    </div>
+
+                    {/* STATUS */}
+                    <div>
+                        <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+
+                            <User size={14} className="text-[#1c5ba9]" />
+
+                            Account Status
+
+                        </label>
+
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800 flex items-center gap-2">
+
+                            {profile?.isValid ? (
+                                <>
+                                    <CheckCircle size={18} className="text-green-600" />
+                                    Active
+                                </>
+                            ) : (
+                                <>
+                                    <XCircle size={18} className="text-red-600" />
+                                    Inactive
+                                </>
+                            )}
+
+                        </div>
+                    </div>
+
+                    {/* CREATED DATE */}
+                    <div>
+                        <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+
+                            <CalendarDays size={14} className="text-[#1c5ba9]" />
+
+                            Created Date
+
+                        </label>
+
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800">
+
+                            {profile?.createdDate
+                                ? new Date(profile.createdDate).toLocaleDateString("en-GB").split("/").join("-")
+                                : "-"}
+
+                        </div>
+                    </div>
                 </div>
+
+                {/* BUTTONS */}
+                <div className="mt-14 flex justify-end gap-4 border-t border-gray-100 pt-8">
+                    {isEditing ? (
+                        <>
+                            <button onClick={handleSave} className="px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow">Save Changes</button>
+                            <button onClick={() => setIsEditing(false)} className="px-6 py-2.5 border border-gray-300 text-gray-600 rounded-lg font-semibold hover:bg-gray-50 transition-all">Cancel</button>
+                        </>
+                    ) : (
+                        <button onClick={handleEdit} className="px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow">Edit Profile</button>
+                    )}
+                </div>
+
+            </div>
 
         </main>
     );

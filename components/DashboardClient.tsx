@@ -67,7 +67,6 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
   const pollProgress = async (jobId: string, cardId: string) => {
 
-    // prevent duplicate polling
     if (activePolls.current.has(cardId)) return;
 
     activePolls.current.add(cardId)
@@ -98,7 +97,6 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
           progress
         );
 
-        // Smooth progress after upload
         const calculatedProgress = Math.min(
           30 + Math.round(progress * 0.7),
           99
@@ -109,7 +107,6 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
           [cardId]: Math.min(calculatedProgress, 99),
         }));
 
-        // COMPLETE
         if (progress >= 100) {
 
           clearInterval(interval);
@@ -145,7 +142,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         console.error(error);
       }
 
-    }, 500); // change 100ms -> 500ms
+    }, 500);
   };
 
   const handleFileChange = async (
@@ -391,7 +388,6 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
   if (showResults) {
 
-    // Total rows count
     const totalRows = forecastData.length;
 
     return (

@@ -57,7 +57,7 @@ export default function ClientsPage() {
 
     try {
       const res = await api.get(
-        `/api/auth/user`,
+        `/api/auth/user?all=true`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -149,7 +149,7 @@ export default function ClientsPage() {
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          role: "USER", // always create client as USER
+          role: "USER",
           forecastDays: parseInt(formData.forecastDays),
           transitTime: parseInt(formData.transitTime)
         },
@@ -160,7 +160,6 @@ export default function ClientsPage() {
         }
       );
 
-      // Adding to dummy list for demo purposes
       await fetchClients();
 
       toast.success("Client created successfully!");
