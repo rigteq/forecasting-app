@@ -4,18 +4,34 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { User, Users, LogOut, ChevronDown, FileText, History, CreditCard, IndianRupee } from "lucide-react";
 import { useRouter } from "next/navigation";
+import api from "@/utils/api";
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hasHistory, setHasHistory] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  const fetchHistoryStatus = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) return;
+      const res = await api.get("/api/forecast/history");
+      const responseData = res.data;
+      const historyData = responseData?.data ?? responseData;
+      setHasHistory(Array.isArray(historyData) && historyData.length > 0);
+    } catch (error) {
+      console.error("Failed to fetch history status in Header", error);
+    }
+  };
 
   useEffect(() => {
     const role = localStorage.getItem("role");
     if (role === "ROLE_ADMIN" || role === "ADMIN") {
       setIsAdmin(true);
     }
+    fetchHistoryStatus();
   }, []);
 
   useEffect(() => {
@@ -63,7 +79,7 @@ export default function Header() {
       {/* Center Company Name */}
       <div className="flex-1 text-center">
         <Link href={isAdmin ? "/dashboard" : "/user-dashboard"}>
-          <h1 className="text-2xl font-black tracking-widest text-[#1c5ba9] uppercase cursor-pointer hover:opacity-90 transition-opacity">
+          <h1 className="text-lg sm:text-2xl font-black tracking-widest text-[#1c5ba9] uppercase cursor-pointer hover:opacity-90 transition-opacity">
             Vardhan Enterprises
           </h1>
         </Link>
@@ -72,7 +88,11 @@ export default function Header() {
       {/* Right Profile Dropdown */}
       <div className="w-32 flex justify-end relative" ref={dropdownRef}>
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => {
+            const next = !isOpen;
+            setIsOpen(next);
+            if (next) fetchHistoryStatus();
+          }}
           className="flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 text-[#1c5ba9] rounded-full border border-gray-200 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1c5ba9]/50"
         >
           <User size={20} />
@@ -128,14 +148,16 @@ export default function Header() {
               <span className="font-semibold">Reports</span>
             </Link>
 
-            <Link
-              href="/dashboard/history"
-              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-[#1c5ba9] transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              <History size={16} className="text-gray-400" />
-              <span className="font-semibold">History</span>
-            </Link>
+            {hasHistory && (
+              <Link
+                href="/dashboard/history"
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-[#1c5ba9] transition-colors"
+                onClick={() => setIsOpen(false)}
+              >
+                <History size={16} className="text-gray-400" />
+                <span className="font-semibold">History</span>
+              </Link>
+            )}
 
             <div className="h-px bg-gray-100 my-1 mx-2"></div>
 

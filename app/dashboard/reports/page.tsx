@@ -6,16 +6,16 @@ import { BarChart, TrendingUp, Filter, Download } from "lucide-react";
 export default function ReportsPage() {
   return (
     <main className="flex-grow p-6 w-full max-w-[1200px] mx-auto">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
           <BarChart size={28} className="text-[#1c5ba9]" />
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Analytics & Reports</h1>
         </div>
-        <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50">
+        <div className="flex gap-3 w-full sm:w-auto">
+          <button className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50">
             <Filter size={16} /> Filter
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#1c5ba9] rounded shadow text-sm font-bold text-white hover:bg-[#154682]">
+          <button className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-[#1c5ba9] rounded shadow text-sm font-bold text-white hover:bg-[#154682]">
             <Download size={16} /> Export
           </button>
         </div>

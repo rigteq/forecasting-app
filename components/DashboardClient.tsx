@@ -37,6 +37,7 @@ const CARDS_CONFIG: FileConfig[] = [
 export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const router = useRouter();
 
+  const [jobId, setJobId] = useState<string>("");
   const [uploadedFileIds, setUploadedFileIds] = useState<Record<string, string>>({});
   const [tabData, setTabData] = useState<Record<string, File[]>>({});
   const [uploadingState, setUploadingState] = useState<Record<string, boolean>>({});
@@ -45,9 +46,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const [forecastDays, setForecastDays] = useState<string>("7");
   const [transitTime, setTransitTime] = useState<string>("5");
 
-
-
-  const [jobId] = useState<string>(crypto.randomUUID());
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   const [isForecasting, setIsForecasting] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -62,12 +61,22 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const activePolls = React.useRef(new Set<string>());
   const [totalRows, setTotalRows] = useState<number>(0);
 
+  useEffect(() => {
+    setJobId(crypto.randomUUID());
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (jobId) {
+        api.delete(`/api/file/upload/clean/${jobId}`).catch(() => {});
+      }
+    };
+  }, [jobId]);
+
 
 
 
   const pollProgress = async (jobId: string, cardId: string) => {
-
-    // prevent duplicate polling
     if (activePolls.current.has(cardId)) return;
 
     activePolls.current.add(cardId)
@@ -77,9 +86,11 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     const interval = setInterval(async () => {
 
       try {
+        const config = CARDS_CONFIG.find(c => c.id === cardId);
+        const typeMap = config ? config.typeMap : "UNKNOWN";
 
         const progressRes = await api.get(
-          `/api/file/upload/progress/${jobId}`,
+          `/api/file/upload/progress/${jobId}/${typeMap}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -98,15 +109,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
           progress
         );
 
-        // Smooth progress after upload
-        const calculatedProgress = Math.min(
-          30 + Math.round(progress * 0.7),
-          99
-        );
-
         setUploadProgress(prev => ({
           ...prev,
-          [cardId]: Math.min(calculatedProgress, 99),
+          [cardId]: Math.min(Math.max(progress, 0), 100),
         }));
 
         // COMPLETE
@@ -202,14 +207,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
       pollProgress(jobId, cardId);
 
       const res = await api.post(url, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-
         onUploadProgress: (progressEvent) => {
-
           const percent = Math.round(
-            (progressEvent.loaded * 30) /
+            (progressEvent.loaded * 100) /
             (progressEvent.total || 1)
           );
 
@@ -248,35 +248,53 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         [cardId]: 0,
       }));
 
-      if (!multiple) {
+      setTabData((prev) => {
+        const newData = { ...prev };
+        delete newData[cardId];
+        return newData;
+      });
 
-        setTabData((prev) => {
-
-          const newData = { ...prev };
-
-          delete newData[cardId];
-
-          return newData;
-        });
-      }
+      setUploadedFileIds((prev) => {
+        const newData = { ...prev };
+        delete newData[cardId];
+        return newData;
+      });
     }
   };
 
 
-  const handleRemoveSingleFile = (cardId: string, index: number) => {
+  const handleRemoveSingleFile = async (cardId: string, index: number) => {
+    const file = tabData[cardId]?.[index];
+    const config = CARDS_CONFIG.find(c => c.id === cardId);
+    if (file && config) {
+      try {
+        const token = localStorage.getItem("accessToken");
+        await api.delete(
+          `/api/file/upload/delete/${jobId}/${config.typeMap}/${file.name}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+      } catch (err) {
+        console.error("Failed to delete file from backend", err);
+      }
+    }
+
     setTabData((prev) => {
       const updatedFiles = [...(prev[cardId] || [])];
       updatedFiles.splice(index, 1);
-      return { ...prev, [cardId]: updatedFiles };
+      const nextData = { ...prev, [cardId]: updatedFiles };
+      if (updatedFiles.length === 0) {
+        setUploadedFileIds((prevIds) => {
+          const updated = { ...prevIds };
+          delete updated[cardId];
+          return updated;
+        });
+      }
+      return nextData;
     });
-
-    if ((tabData[cardId]?.length || 0) <= 1) {
-      setUploadedFileIds((prev) => {
-        const updated = { ...prev };
-        delete updated[cardId];
-        return updated;
-      });
-    }
   };
 
   const handleForecast = async () => {
@@ -306,20 +324,39 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         }
       );
 
-      const data = res.data;
+      const responseData = res.data;
+      const forecastResponse = responseData.data;
 
-      setForecastData(data.data || []);
-      setSummaryData(data);
+      setForecastData(forecastResponse?.data || responseData?.data || []);
+      setSummaryData(forecastResponse || responseData);
       setShowResults(true);
 
     } catch (error: any) {
-
-      const message =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to generate forecast.";
+      console.error("Forecast failed details:", error);
+      let message = "Failed to generate forecast.";
+      if (error.response) {
+        if (error.response.data) {
+          if (typeof error.response.data === "string") {
+            if (error.response.data.includes("<html") || error.response.data.includes("<!DOCTYPE")) {
+              message = `Server Error (${error.response.status}): ${error.response.statusText || "Internal Server Error"}`;
+            } else {
+              message = error.response.data;
+            }
+          } else if (typeof error.response.data === "object") {
+            message = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
+          }
+        } else {
+          message = `Server Error (${error.response.status}): ${error.response.statusText || "Internal Server Error"}`;
+        }
+      } else if (error.message) {
+        message = error.message;
+      }
 
       setForecastError(message);
+      setUploadedFileIds({});
+      setTabData({});
+      setUploadingState({});
+      setUploadProgress({});
 
     } finally {
 
@@ -379,6 +416,25 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     }
   };
 
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await api.get("/api/auth/profile");
+        const profileData = res.data?.data ?? res.data;
+        if (profileData) {
+          setForecastDays(String(profileData.forecastDays || 7));
+          setTransitTime(String(profileData.transitTime || 5));
+        }
+      } catch (err) {
+        console.error("Failed to load profile for defaults", err);
+      } finally {
+        setProfileLoaded(true);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
   const allRequiredUploaded = CARDS_CONFIG.filter(c => {
     if (c.adminOnly && role !== "ADMIN") return false;
     return c.requiredForForecast;
@@ -398,23 +454,33 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
       <div className="bg-gray-50 w-full max-w-7xl mx-auto rounded-lg shadow mt-4 h-[calc(100vh-120px)] overflow-hidden flex flex-col">
 
         {/* TOP BAR */}
-        <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-white border-b border-gray-200 gap-4">
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
             <button
-              onClick={() => setShowResults(false)}
+              onClick={() => {
+                if (jobId) {
+                  api.delete(`/api/file/upload/clean/${jobId}`).catch(() => {});
+                }
+                setUploadedFileIds({});
+                setTabData({});
+                setUploadingState({});
+                setUploadProgress({});
+                setJobId(crypto.randomUUID());
+                setShowResults(false);
+              }}
               className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
             >
               <ArrowLeft size={20} /> Back to Dashboard
             </button>
 
             {/* TOTAL COUNT */}
-            <div className="bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2 rounded-lg text-sm font-semibold">
+            <div className="bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">
               Total Rows : {totalRows}
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
 
             {/* Excel */}
             <button
@@ -473,22 +539,17 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         <div className="p-4 lg:p-6 flex-1 overflow-hidden">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
 
-            <div className="overflow-y-auto h-[calc(100vh-240px)] rounded-xl">
-              <table className="w-full text-xs text-left table-fixed">
+            <div className="overflow-x-auto overflow-y-auto h-[calc(100vh-240px)] rounded-xl">
+              <table className="w-full text-xs text-left table-fixed min-w-[600px] md:min-w-0">
 
                 {/* HEADER */}
                 <thead className="bg-gray-100 text-gray-700 uppercase text-[10px] font-semibold sticky top-0 z-10">
                   <tr>
-                    <th className="px-2 py-2 w-[10%]">Part No</th>
-                    <th className="px-2 py-2 w-[18%]">Name</th>
-                    <th className="px-2 py-2 w-[8%] text-right">Stock</th>
-                    <th className="px-2 py-2 w-[8%] text-right">Avg </th>
-                    <th className="px-2 py-2 w-[8%] text-right">Days</th>
-                    <th className="px-2 py-2 w-[8%] text-right">Transit</th>
-                    <th className="px-2 py-2 w-[10%] text-right">Forecast</th>
-                    <th className="px-2 py-2 w-[8%] text-right">MRP</th>
-                    <th className="px-2 py-2 w-[10%] text-right">Total</th>
-                    <th className="px-2 py-2 w-[10%] text-center">Priority</th>
+                    <th className="px-4 py-3 w-[20%]">Part Number</th>
+                    <th className="px-4 py-3 w-[40%]">Description</th>
+                    <th className="px-4 py-3 w-[15%] text-right">Sales Unit</th>
+                    <th className="px-4 py-3 w-[15%] text-right">Order Qty</th>
+                    <th className="px-4 py-3 w-[10%] text-center">Category</th>
                   </tr>
                 </thead>
 
@@ -496,7 +557,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
                 <tbody className="divide-y divide-gray-100">
                   {forecastData.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-2 py-6 text-center text-gray-500">
+                      <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
                         No data available
                       </td>
                     </tr>
@@ -504,52 +565,33 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
                     forecastData.map((item, idx) => (
                       <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
 
-                        <td className="px-2 py-2 font-medium break-words">
-                          {item.partNumber || item.partNo || '-'}
+                        <td className="px-4 py-3 font-medium break-words">
+                          {item.partNumber || '-'}
                         </td>
 
-                        <td className="px-2 py-2 break-words">
-                          {item.partName || '-'}
+                        <td className="px-4 py-3 break-words">
+                          {item.description || '-'}
                         </td>
 
-                        <td className="px-2 py-2 text-right">
-                          {item.currentStock || 0}
+                        <td className="px-4 py-3 text-right">
+                          {item.salesUnit || 1}
                         </td>
 
-                        <td className="px-2 py-2 text-right">
-                          {item.avgConsumption || 0}
+                        <td className="px-4 py-3 text-right font-semibold text-blue-600">
+                          {item.orderQty || 0}
                         </td>
 
-                        <td className="px-2 py-2 text-right">
-                          {item.daysOfSupply || 0}
-                        </td>
-
-                        <td className="px-2 py-2 text-right">
-                          {item.transitTime ?? transitTime}
-                        </td>
-
-                        <td className="px-2 py-2 text-right font-semibold text-blue-600">
-                          {item.forecastQty || 0}
-                        </td>
-
-                        <td className="px-2 py-2 text-right">
-                          ₹{item.unitMrp || 0}
-                        </td>
-
-                        <td className="px-2 py-2 text-right font-semibold">
-                          ₹{item.totalMrp || 0}
-                        </td>
-
-                        <td className="px-2 py-2 text-center">
+                        <td className="px-4 py-3 text-center">
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${item.priority === 'A'
-                              ? 'bg-red-100 text-red-700'
-                              : item.priority === 'B'
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-green-100 text-green-700'
-                              }`}
+                            className={`px-2 py-1 rounded text-[10px] font-bold ${
+                              item.category === 'A'
+                                ? 'bg-red-100 text-red-700'
+                                : item.category === 'B'
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : 'bg-green-100 text-green-700'
+                            }`}
                           >
-                            {item.priority || 'C'}
+                            {item.category || 'C'}
                           </span>
                         </td>
 
@@ -659,11 +701,11 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
       {/* Sticky Controls Footer */}
       <div className="flex-shrink-0 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky bottom-0 z-10">
-        <div className={`flex items-end gap-6 ${role === "ADMIN" ? "justify-between" : "justify-center"}`}>
+        <div className={`flex flex-col md:flex-row md:items-end gap-4 ${role === "ADMIN" ? "justify-between" : "justify-center"}`}>
           {role === "ADMIN" && (
-            <div className="flex gap-6">
+            <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
               {/* Forecasting Days */}
-              <div className="flex flex-col gap-1.5 w-40">
+              <div className="flex flex-col gap-1.5 w-full sm:w-40">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                   Forecasting Days
                 </label>
@@ -680,7 +722,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
               </div>
 
               {/* Transit Time */}
-              <div className="flex flex-col gap-1.5 w-40">
+              <div className="flex flex-col gap-1.5 w-full sm:w-40">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                   Transit Time
                 </label>
@@ -699,7 +741,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
           )}
 
           {/* Button */}
-          <div className={`${role === "ADMIN" ? "flex-1 max-w-sm" : "w-64"}`}>
+          <div className="w-full md:max-w-sm">
             <button
               onClick={handleForecast}
               disabled={!allRequiredUploaded || isForecasting}

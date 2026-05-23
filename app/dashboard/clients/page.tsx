@@ -65,7 +65,8 @@ export default function ClientsPage() {
         }
       );
 
-      setClients(res.data);
+      const users = res.data?.data;
+      setClients(Array.isArray(users) ? users : []);
     } catch (error) {
       toast.error("Failed to load clients");
     }
@@ -190,25 +191,25 @@ export default function ClientsPage() {
     <main className="flex-grow p-6 w-full max-w-[1400px] mx-auto flex flex-col gap-6">
       <div className="flex flex-col gap-6">
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
-          <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-4 border-b border-gray-100">
             <h2 className="text-xl font-bold text-[#1c5ba9] flex items-center gap-2 uppercase tracking-wide">
               <Users size={20} />
               Clients List
             </h2>
-            <div className="flex items-center gap-4">
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input
                   type="text"
                   placeholder="Search clients..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-blue-100 bg-gray-50 font-semibold rounded focus:ring-1 focus:ring-[#1c5ba9]/30 focus:outline-none transition-all text-sm w-64"
+                  className="pl-10 pr-4 py-2 border border-blue-100 bg-gray-50 font-semibold rounded focus:ring-1 focus:ring-[#1c5ba9]/30 focus:outline-none transition-all text-sm w-full"
                 />
               </div>
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#1c5ba9] hover:bg-[#154682] text-white text-sm font-bold rounded shadow-sm transition-colors uppercase tracking-wide"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1c5ba9] hover:bg-[#154682] text-white text-sm font-bold rounded shadow-sm transition-colors uppercase tracking-wide whitespace-nowrap"
               >
                 <Plus size={16} /> Add Client
               </button>

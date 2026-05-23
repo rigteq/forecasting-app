@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "@/utils/api";
 import {
     Mail,
     ShieldCheck,
@@ -41,16 +41,9 @@ export default function ProfilePage() {
 
                 const token = localStorage.getItem("accessToken");
 
-                const res = await axios.get(
-                    `${BASE_URL}/api/auth/profile`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }
-                );
-
-                setProfile(res.data);
+                const res = await api.get("/api/auth/profile");
+                const profileData = res.data?.data ?? res.data;
+                setProfile(profileData);
 
             } catch (error) {
                 console.error("Failed to load profile", error);
@@ -73,16 +66,12 @@ export default function ProfilePage() {
 
     const handleSave = async () => {
         try {
-            const token = localStorage.getItem("accessToken");
-            await axios.put(
-                `${BASE_URL}/api/auth/user/${profile?.id}`,
+            await api.put(
+                `/api/auth/user/${profile?.id}`,
                 {
                     username: editData.username,
                     email: editData.email,
                     password: editData.password
-                },
-                {
-                    headers: { Authorization: `Bearer ${token}` }
                 }
             );
             setProfile(prev => prev ? { ...prev, username: editData.username, email: editData.email } : null);
@@ -205,33 +194,6 @@ export default function ProfilePage() {
                                 </div>
                             </div>
 
-                            {/* STATUS */}
-                            <div>
-                                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-
-                                    <User size={14} className="text-[#1c5ba9]" />
-
-                                    Account Status
-
-                                </label>
-
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 font-semibold text-gray-800 flex items-center gap-2">
-
-                                    {profile?.isValid ? (
-                                        <>
-                                            <CheckCircle size={18} className="text-green-600" />
-                                            Active
-                                        </>
-                                    ) : (
-                                        <>
-                                            <XCircle size={18} className="text-red-600" />
-                                            Inactive
-                                        </>
-                                    )}
-
-                                </div>
-                            </div>
-
                             {/* CREATED DATE */}
                             <div>
                                 <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
@@ -253,14 +215,14 @@ export default function ProfilePage() {
                         </div>
 
                     {/* BUTTONS */}
-                    <div className="mt-14 flex justify-end gap-4 border-t border-gray-100 pt-8">
+                    <div className="mt-14 flex flex-col sm:flex-row justify-end gap-3 border-t border-gray-100 pt-8">
                         {isEditing ? (
                             <>
-                                <button onClick={handleSave} className="px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow">Save Changes</button>
-                                <button onClick={() => setIsEditing(false)} className="px-6 py-2.5 border border-gray-300 text-gray-600 rounded-lg font-semibold hover:bg-gray-50 transition-all">Cancel</button>
+                                <button onClick={handleSave} className="w-full sm:w-auto px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow text-center">Save Changes</button>
+                                <button onClick={() => setIsEditing(false)} className="w-full sm:w-auto px-6 py-2.5 border border-gray-300 text-gray-600 rounded-lg font-semibold hover:bg-gray-50 transition-all text-center">Cancel</button>
                             </>
                         ) : (
-                            <button onClick={handleEdit} className="px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow">Edit Profile</button>
+                            <button onClick={handleEdit} className="w-full sm:w-auto px-6 py-2.5 bg-[#1c5ba9] text-white rounded-lg font-semibold hover:bg-[#154682] transition-all shadow text-center">Edit Profile</button>
                         )}
                     </div>
 

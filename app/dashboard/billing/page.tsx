@@ -47,11 +47,11 @@ export default function BillingPage() {
               ))}
             </div>
 
-            <div className="flex gap-4">
-              <button className="px-6 py-2.5 bg-[#1c5ba9] text-white font-bold text-sm rounded shadow hover:bg-[#154682] transition-colors">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button className="w-full sm:w-auto px-6 py-2.5 bg-[#1c5ba9] text-white font-bold text-sm rounded shadow hover:bg-[#154682] transition-colors text-center">
                 Upgrade Plan
               </button>
-              <button className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold text-sm rounded shadow-sm hover:bg-gray-50 transition-colors">
+              <button className="w-full sm:w-auto px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold text-sm rounded shadow-sm hover:bg-gray-50 transition-colors text-center">
                 Cancel Subscription
               </button>
             </div>
