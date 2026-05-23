@@ -131,7 +131,7 @@ export default function PartPriceListPage() {
       try {
 
         const res = await api.get(
-          `/api/file/upload/progress/${jobId}`,
+          `/api/file/upload/progress/${jobId}/PART_PRICE`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

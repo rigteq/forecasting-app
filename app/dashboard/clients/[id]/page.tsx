@@ -76,15 +76,15 @@ export default function ClientDashboard() {
   return (
     <main className="flex-grow p-6 w-full max-w-[1400px] mx-auto flex flex-col gap-6">
       {/* Back button and page status */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
         <Link
           href="/dashboard/clients"
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm font-bold text-gray-700 transition-colors shadow-sm"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm font-bold text-gray-700 transition-colors shadow-sm w-full sm:w-auto"
         >
           <ChevronLeft size={16} />
           Back to Clients
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
           <span className="text-gray-500 font-bold uppercase text-[10px] tracking-widest">Viewing Client Settings:</span>
           <span className="px-3 py-1 bg-blue-50 text-[#1c5ba9] rounded font-black text-sm uppercase ring-1 ring-blue-100">
             {clientName}
@@ -103,7 +103,7 @@ export default function ClientDashboard() {
 
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mt-2">
             <div className="flex items-center mb-6">
-              <h2 className="text-xl font-bold text-[#1c5ba9] whitespace-nowrap uppercase tracking-wide">Client Forecasting Configuration</h2>
+              <h2 className="text-xl font-bold text-[#1c5ba9] whitespace-nowrap uppercase tracking-wide">Edit Configuration</h2>
               <div className="ml-4 h-[1px] bg-gray-200 flex-grow"></div>
             </div>
 

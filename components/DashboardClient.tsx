@@ -86,9 +86,11 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     const interval = setInterval(async () => {
 
       try {
+        const config = CARDS_CONFIG.find(c => c.id === cardId);
+        const typeMap = config ? config.typeMap : "UNKNOWN";
 
         const progressRes = await api.get(
-          `/api/file/upload/progress/${jobId}`,
+          `/api/file/upload/progress/${jobId}/${typeMap}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -246,35 +248,53 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         [cardId]: 0,
       }));
 
-      if (!multiple) {
+      setTabData((prev) => {
+        const newData = { ...prev };
+        delete newData[cardId];
+        return newData;
+      });
 
-        setTabData((prev) => {
-
-          const newData = { ...prev };
-
-          delete newData[cardId];
-
-          return newData;
-        });
-      }
+      setUploadedFileIds((prev) => {
+        const newData = { ...prev };
+        delete newData[cardId];
+        return newData;
+      });
     }
   };
 
 
-  const handleRemoveSingleFile = (cardId: string, index: number) => {
+  const handleRemoveSingleFile = async (cardId: string, index: number) => {
+    const file = tabData[cardId]?.[index];
+    const config = CARDS_CONFIG.find(c => c.id === cardId);
+    if (file && config) {
+      try {
+        const token = localStorage.getItem("accessToken");
+        await api.delete(
+          `/api/file/upload/delete/${jobId}/${config.typeMap}/${file.name}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+      } catch (err) {
+        console.error("Failed to delete file from backend", err);
+      }
+    }
+
     setTabData((prev) => {
       const updatedFiles = [...(prev[cardId] || [])];
       updatedFiles.splice(index, 1);
-      return { ...prev, [cardId]: updatedFiles };
+      const nextData = { ...prev, [cardId]: updatedFiles };
+      if (updatedFiles.length === 0) {
+        setUploadedFileIds((prevIds) => {
+          const updated = { ...prevIds };
+          delete updated[cardId];
+          return updated;
+        });
+      }
+      return nextData;
     });
-
-    if ((tabData[cardId]?.length || 0) <= 1) {
-      setUploadedFileIds((prev) => {
-        const updated = { ...prev };
-        delete updated[cardId];
-        return updated;
-      });
-    }
   };
 
   const handleForecast = async () => {
@@ -312,11 +332,25 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
       setShowResults(true);
 
     } catch (error: any) {
-
-      const message =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to generate forecast.";
+      console.error("Forecast failed details:", error);
+      let message = "Failed to generate forecast.";
+      if (error.response) {
+        if (error.response.data) {
+          if (typeof error.response.data === "string") {
+            if (error.response.data.includes("<html") || error.response.data.includes("<!DOCTYPE")) {
+              message = `Server Error (${error.response.status}): ${error.response.statusText || "Internal Server Error"}`;
+            } else {
+              message = error.response.data;
+            }
+          } else if (typeof error.response.data === "object") {
+            message = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
+          }
+        } else {
+          message = `Server Error (${error.response.status}): ${error.response.statusText || "Internal Server Error"}`;
+        }
+      } else if (error.message) {
+        message = error.message;
+      }
 
       setForecastError(message);
       setUploadedFileIds({});
@@ -420,9 +454,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
       <div className="bg-gray-50 w-full max-w-7xl mx-auto rounded-lg shadow mt-4 h-[calc(100vh-120px)] overflow-hidden flex flex-col">
 
         {/* TOP BAR */}
-        <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-white border-b border-gray-200 gap-4">
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
             <button
               onClick={() => {
                 if (jobId) {
@@ -441,12 +475,12 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
             </button>
 
             {/* TOTAL COUNT */}
-            <div className="bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2 rounded-lg text-sm font-semibold">
+            <div className="bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">
               Total Rows : {totalRows}
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
 
             {/* Excel */}
             <button
@@ -505,8 +539,8 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         <div className="p-4 lg:p-6 flex-1 overflow-hidden">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
 
-            <div className="overflow-y-auto h-[calc(100vh-240px)] rounded-xl">
-              <table className="w-full text-xs text-left table-fixed">
+            <div className="overflow-x-auto overflow-y-auto h-[calc(100vh-240px)] rounded-xl">
+              <table className="w-full text-xs text-left table-fixed min-w-[600px] md:min-w-0">
 
                 {/* HEADER */}
                 <thead className="bg-gray-100 text-gray-700 uppercase text-[10px] font-semibold sticky top-0 z-10">
@@ -667,11 +701,11 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
       {/* Sticky Controls Footer */}
       <div className="flex-shrink-0 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky bottom-0 z-10">
-        <div className={`flex items-end gap-6 ${role === "ADMIN" ? "justify-between" : "justify-center"}`}>
+        <div className={`flex flex-col md:flex-row md:items-end gap-4 ${role === "ADMIN" ? "justify-between" : "justify-center"}`}>
           {role === "ADMIN" && (
-            <div className="flex gap-6">
+            <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
               {/* Forecasting Days */}
-              <div className="flex flex-col gap-1.5 w-40">
+              <div className="flex flex-col gap-1.5 w-full sm:w-40">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                   Forecasting Days
                 </label>
@@ -688,7 +722,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
               </div>
 
               {/* Transit Time */}
-              <div className="flex flex-col gap-1.5 w-40">
+              <div className="flex flex-col gap-1.5 w-full sm:w-40">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                   Transit Time
                 </label>
@@ -707,7 +741,7 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
           )}
 
           {/* Button */}
-          <div className={`${role === "ADMIN" ? "flex-1 max-w-sm" : "w-64"}`}>
+          <div className="w-full md:max-w-sm">
             <button
               onClick={handleForecast}
               disabled={!allRequiredUploaded || isForecasting}
