@@ -272,7 +272,7 @@ export default function HistoryPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <History size={24} className="text-[#1c5ba9]" />
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Forecast History</h1>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Forecast Results</h1>
         </div>
         <button
           onClick={handleManualRefresh}

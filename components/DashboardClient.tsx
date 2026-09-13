@@ -25,7 +25,7 @@ type FileConfig = {
 };
 
 const CARDS_CONFIG: FileConfig[] = [
-  { id: "No Forecast", title: "No Forecast", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "NO_FORECAST", helpText: "Optional. 1 File" },
+  { id: "No Forecast", title: "No Forecast", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "NO_FORECAST", helpText: "Required. 1 File" },
   { id: "Current Stock", title: "Current Stock", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CURRENT_STOCK", helpText: "Required. 1 File" },
   { id: "Transit", title: "Transit", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "TRANSIT", helpText: "Optional. 1 File" },
   { id: "Back Order", title: "BackOrder", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "BACKORDER", helpText: "Optional. 1 File" },
@@ -317,22 +317,11 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         }
       );
 
-      toast.success("Forecast Request Created! Processing in background.", {
+      toast.info("Forecast started! You can check progress on the results page manually.", {
         position: "top-right",
         autoClose: 5000,
-        toastId: `forecast-created-${activeJobId}`,
+        toastId: `forecast-started-${activeJobId}`,
       });
-
-      // Clear uploads & reset job ID for new upload batch
-      setUploadedFileIds({});
-      setTabData({});
-      setUploadingState({});
-      setUploadProgress({});
-      setJobId(crypto.randomUUID());
-
-      // Redirect user to History Page to monitor live status (Pending -> Completed)
-      const targetHistoryPath = role === "ADMIN" ? "/dashboard/history" : "/user-dashboard/history";
-      router.push(targetHistoryPath);
 
     } catch (error: any) {
       console.error("Forecast failed details:", error);

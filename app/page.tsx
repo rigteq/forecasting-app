@@ -112,9 +112,6 @@ export default function Login() {
                 priority
               />
             </div>
-            <h1 className="text-4xl md:text-5xl font-black mb-4 tracking-tight">
-              Vardhan Enterprises
-            </h1>
             <p className="text-blue-100 text-lg md:text-xl font-medium max-w-lg leading-relaxed">
               Advanced Forecasting & Inventory Management System
             </p>
