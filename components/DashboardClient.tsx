@@ -25,7 +25,7 @@ type FileConfig = {
 };
 
 const CARDS_CONFIG: FileConfig[] = [
-  { id: "No Forecast", title: "No Forecast", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "NO_FORECAST", helpText: "Optional. 1 File" },
+  { id: "No Forecast", title: "No Forecast", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "NO_FORECAST", helpText: "Required. 1 File" },
   { id: "Current Stock", title: "Current Stock", requiredForForecast: true, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "CURRENT_STOCK", helpText: "Required. 1 File" },
   { id: "Transit", title: "Transit", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "TRANSIT", helpText: "Optional. 1 File" },
   { id: "Back Order", title: "BackOrder", requiredForForecast: false, adminOnly: false, multiple: false, accept: ".csv,.xlsx,.xls,.pdf", typeMap: "BACKORDER", helpText: "Optional. 1 File" },
@@ -62,15 +62,9 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   const [totalRows, setTotalRows] = useState<number>(0);
 
   useEffect(() => {
-    setJobId(crypto.randomUUID());
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (jobId) {
-        api.delete(`/api/file/upload/clean/${jobId}`).catch(() => {});
-      }
-    };
+    if (!jobId) {
+      setJobId(crypto.randomUUID());
+    }
   }, [jobId]);
 
 
@@ -298,7 +292,6 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
   };
 
   const handleForecast = async () => {
-
     const missing = CARDS_CONFIG.filter(c => {
       if (c.adminOnly && role !== "ADMIN") return false;
       return c.requiredForForecast && !uploadedFileIds[c.id];
@@ -315,51 +308,33 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
     setForecastError("");
 
     try {
-
-      const res = await api.post(
-        `/api/forecast/${jobId || "dummy-job-id"}`,
+      const activeJobId = jobId;
+      await api.post(
+        `/api/forecast/${activeJobId}`,
         {
           forecastDays: Number(forecastDays),
           transitTime: Number(transitTime),
         }
       );
 
-      const responseData = res.data;
-      const forecastResponse = responseData.data;
-
-      setForecastData(forecastResponse?.data || responseData?.data || []);
-      setSummaryData(forecastResponse || responseData);
-      setShowResults(true);
+      toast.info("Forecast started! You can check progress on the results page manually.", {
+        position: "top-right",
+        autoClose: 5000,
+        toastId: `forecast-started-${activeJobId}`,
+      });
 
     } catch (error: any) {
       console.error("Forecast failed details:", error);
-      let message = "Failed to generate forecast.";
-      if (error.response) {
-        if (error.response.data) {
-          if (typeof error.response.data === "string") {
-            if (error.response.data.includes("<html") || error.response.data.includes("<!DOCTYPE")) {
-              message = `Server Error (${error.response.status}): ${error.response.statusText || "Internal Server Error"}`;
-            } else {
-              message = error.response.data;
-            }
-          } else if (typeof error.response.data === "object") {
-            message = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
-          }
-        } else {
-          message = `Server Error (${error.response.status}): ${error.response.statusText || "Internal Server Error"}`;
-        }
+      let message = "Failed to create forecast request.";
+      if (error.response?.data?.message) {
+        message = error.response.data.message;
       } else if (error.message) {
         message = error.message;
       }
 
+      toast.error(message, { position: "top-right" });
       setForecastError(message);
-      setUploadedFileIds({});
-      setTabData({});
-      setUploadingState({});
-      setUploadProgress({});
-
     } finally {
-
       setIsForecasting(false);
     }
   };
@@ -643,7 +618,10 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
           return (
             <div key={config.id} className={`bg-white rounded-lg shadow-sm border ${isUploaded ? 'border-[#1c5ba9]/40 ring-1 ring-[#1c5ba9]/10' : 'border-gray-200'} p-4 flex flex-col transition-all h-full ${isDisabled ? 'opacity-60 bg-gray-50 pointer-events-none' : 'hover:shadow'}`}>
               <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-gray-800 text-sm">{config.title}</h3>
+                <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-1">
+                  {config.title}
+                  {config.requiredForForecast && <span className="text-red-500 font-bold text-base" title="Mandatory">*</span>}
+                </h3>
                 {isUploaded && <CheckCircle size={16} className="text-[#1c5ba9]" />}
                 {isDisabled && <span className="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider">Admin Only</span>}
               </div>

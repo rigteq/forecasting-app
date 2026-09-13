@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { History, CalendarDays, Download, Eye, ArrowLeft, FileSpreadsheet, Loader2 } from "lucide-react";
+import { History, CalendarDays, Download, Eye, ArrowLeft, FileSpreadsheet, Loader2, Trash2, RefreshCw } from "lucide-react";
 import api from "@/utils/api";
+import { toast } from "react-toastify";
 
 type ForecastResultDto = {
   partNumber: string;
@@ -15,6 +16,8 @@ type ForecastResultDto = {
 type ForecastHistory = {
   id: string;
   jobId: string;
+  status?: string;
+  errorMessage?: string;
   createdDate: string;
   username?: string;
   forecastData?: ForecastResultDto[];
@@ -23,27 +26,50 @@ type ForecastHistory = {
 export default function HistoryPage() {
   const [history, setHistory] = useState<ForecastHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState<ForecastHistory | null>(null);
   const [downloadingType, setDownloadingType] = useState<string | null>(null);
 
+  const fetchHistory = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await api.get("/api/forecast/history", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const responseData = res.data;
+      const historyData = responseData?.data ?? responseData;
+      setHistory(Array.isArray(historyData) ? historyData : []);
+    } catch (error) {
+      console.error("Failed to load history", error);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const token = localStorage.getItem("accessToken");
-        const res = await api.get("/api/forecast/history", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const responseData = res.data;
-        const historyData = responseData?.data ?? responseData;
-        setHistory(Array.isArray(historyData) ? historyData : []);
-      } catch (error) {
-        console.error("Failed to load history", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchHistory();
   }, []);
+
+  const handleManualRefresh = () => {
+    setIsRefreshing(true);
+    fetchHistory();
+  };
+
+  const handleDeleteHistory = async (historyId: string) => {
+    if (!confirm("Are you sure you want to delete this forecast history record?")) return;
+    try {
+      const token = localStorage.getItem("accessToken");
+      await api.delete(`/api/forecast/history/${historyId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success("History record deleted");
+      setHistory((prev) => prev.filter((item) => item.id !== historyId));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete history record");
+    }
+  };
 
   const handleDownload = async (jobId: string) => {
     try {
@@ -243,9 +269,19 @@ export default function HistoryPage() {
 
   return (
     <main className="flex-grow p-6 w-full max-w-[1200px] mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <History size={24} className="text-[#1c5ba9]" />
-        <h1 className="text-2xl font-black text-gray-900 tracking-tight">Forecast History</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <History size={24} className="text-[#1c5ba9]" />
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Forecast Results</h1>
+        </div>
+        <button
+          onClick={handleManualRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold transition-colors disabled:opacity-60"
+        >
+          <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+          {isRefreshing ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
 
       {history.length === 0 ? (
@@ -271,6 +307,9 @@ export default function HistoryPage() {
                   <button onClick={() => handleDownload(item.jobId)} className="text-[#1c5ba9] hover:bg-blue-50 p-1.5 rounded transition-colors" title="Download Excel">
                     <Download size={16} />
                   </button>
+                  <button onClick={() => handleDeleteHistory(item.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors" title="Delete History">
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
 
@@ -281,10 +320,22 @@ export default function HistoryPage() {
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                   <span className="text-sm text-gray-600">Status</span>
-                  <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-green-600 bg-green-50 px-2 py-1 rounded">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                    Completed
-                  </span>
+                  {item.status === "PENDING" ? (
+                    <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                      Pending
+                    </span>
+                  ) : item.status === "FAILED" ? (
+                    <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-700 bg-red-50 px-2 py-1 rounded" title={item.errorMessage}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                      Failed
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-green-600 bg-green-50 px-2 py-1 rounded">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                      Completed
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

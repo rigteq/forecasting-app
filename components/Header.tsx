@@ -155,7 +155,7 @@ export default function Header() {
                 onClick={() => setIsOpen(false)}
               >
                 <History size={16} className="text-gray-400" />
-                <span className="font-semibold">History</span>
+                <span className="font-semibold">Results</span>
               </Link>
             )}
 
