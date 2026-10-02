@@ -10,6 +10,8 @@ type ForecastResultDto = {
   description: string;
   salesUnit: number;
   orderQty: number;
+  price?: number;
+  value?: number;
   category: string;
 };
 
@@ -213,17 +215,19 @@ export default function HistoryPage() {
               <table className="w-full text-xs text-left table-fixed min-w-[600px] md:min-w-0">
                 <thead className="bg-gray-100 text-gray-700 uppercase text-[10px] font-semibold sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-3 w-[20%]">Part Number</th>
-                    <th className="px-4 py-3 w-[40%]">Description</th>
-                    <th className="px-4 py-3 w-[15%] text-right">Sales Unit</th>
-                    <th className="px-4 py-3 w-[15%] text-right">Order Qty</th>
-                    <th className="px-4 py-3 w-[10%] text-center">Category</th>
+                    <th className="px-4 py-3 w-[18%]">Part Number</th>
+                    <th className="px-4 py-3 w-[27%]">Description</th>
+                    <th className="px-4 py-3 w-[10%] text-right">Sales Unit</th>
+                    <th className="px-4 py-3 w-[11%] text-right">Order Qty</th>
+                    <th className="px-4 py-3 w-[12%] text-right">Price (₹)</th>
+                    <th className="px-4 py-3 w-[13%] text-right">Value (₹)</th>
+                    <th className="px-4 py-3 w-[9%] text-center">Category</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {data.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                      <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
                         No data available
                       </td>
                     </tr>
@@ -241,6 +245,12 @@ export default function HistoryPage() {
                         </td>
                         <td className="px-4 py-3 text-right font-semibold text-blue-600">
                           {item.orderQty || 0}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-700">
+                          {item.price != null ? item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-gray-900">
+                          {item.value != null ? item.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span
