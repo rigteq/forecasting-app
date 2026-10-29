@@ -25,14 +25,20 @@ type ForecastHistory = {
   forecastData?: ForecastResultDto[];
 };
 
+// Client-side in-memory cache for instant navigation
+let inMemoryHistoryCache: ForecastHistory[] | null = null;
+
 export default function HistoryPage() {
-  const [history, setHistory] = useState<ForecastHistory[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState<ForecastHistory[]>(() => inMemoryHistoryCache || []);
+  const [loading, setLoading] = useState<boolean>(!inMemoryHistoryCache);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState<ForecastHistory | null>(null);
   const [downloadingType, setDownloadingType] = useState<string | null>(null);
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (isBackground = false) => {
+    if (!isBackground && !inMemoryHistoryCache) {
+      setLoading(true);
+    }
     try {
       const token = localStorage.getItem("accessToken");
       const res = await api.get("/api/forecast/history", {
@@ -40,7 +46,9 @@ export default function HistoryPage() {
       });
       const responseData = res.data;
       const historyData = responseData?.data ?? responseData;
-      setHistory(Array.isArray(historyData) ? historyData : []);
+      const validData = Array.isArray(historyData) ? historyData : [];
+      setHistory(validData);
+      inMemoryHistoryCache = validData;
     } catch (error) {
       console.error("Failed to load history", error);
     } finally {
@@ -50,12 +58,13 @@ export default function HistoryPage() {
   };
 
   useEffect(() => {
-    fetchHistory();
+    // If cached, display instantly and fetch fresh data in background; if not cached, fetch with loader
+    fetchHistory(!!inMemoryHistoryCache);
   }, []);
 
   const handleManualRefresh = () => {
     setIsRefreshing(true);
-    fetchHistory();
+    fetchHistory(false);
   };
 
   const handleDeleteHistory = async (historyId: string) => {
@@ -66,7 +75,9 @@ export default function HistoryPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("History record deleted");
-      setHistory((prev) => prev.filter((item) => item.id !== historyId));
+      const updated = history.filter((item) => item.id !== historyId);
+      setHistory(updated);
+      inMemoryHistoryCache = updated;
     } catch (err) {
       console.error(err);
       toast.error("Failed to delete history record");
@@ -93,9 +104,21 @@ export default function HistoryPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
+      toast.success("Excel downloaded successfully");
+    } catch (err: unknown) {
       console.error(err);
-      alert("Download failed. File might be unavailable.");
+      let errorMsg = "Download failed. File may not be available.";
+      const errorObj = err as { response?: { data?: unknown } };
+      if (errorObj?.response?.data instanceof Blob) {
+        try {
+          const text = await errorObj.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed.message) errorMsg = parsed.message;
+        } catch (_) {}
+      } else if (typeof errorObj?.response?.data === "object" && errorObj.response?.data !== null && "message" in errorObj.response.data) {
+        errorMsg = String((errorObj.response.data as { message: unknown }).message);
+      }
+      toast.error(errorMsg);
     }
   };
 
@@ -120,16 +143,35 @@ export default function HistoryPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
+      toast.success(`${type.toUpperCase()} downloaded successfully`);
+    } catch (err: unknown) {
       console.error(err);
-      alert("Download failed.");
+      let errorMsg = `Failed to download ${type.toUpperCase()}.`;
+      const errorObj = err as { response?: { data?: unknown } };
+      if (errorObj?.response?.data instanceof Blob) {
+        try {
+          const text = await errorObj.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed.message) errorMsg = parsed.message;
+        } catch (_) {}
+      } else if (typeof errorObj?.response?.data === "object" && errorObj.response?.data !== null && "message" in errorObj.response.data) {
+        errorMsg = String((errorObj.response.data as { message: unknown }).message);
+      }
+      toast.error(errorMsg);
     } finally {
       setDownloadingType(null);
     }
   };
 
-  if (loading) {
-    return <div className="p-6 text-center text-gray-500">Loading history...</div>;
+  if (loading && history.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex items-center gap-2 text-gray-500 text-sm">
+          <Loader2 size={18} className="animate-spin text-[#1c5ba9]" />
+          Loading forecast history...
+        </div>
+      </div>
+    );
   }
 
   if (selectedHistory) {
@@ -210,10 +252,10 @@ export default function HistoryPage() {
         </div>
 
         <div className="p-4 lg:p-6 flex-1 overflow-hidden">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="overflow-x-auto overflow-y-auto h-[calc(100vh-240px)] rounded-xl">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col">
+            <div className="overflow-x-auto overflow-y-auto flex-1 rounded-xl">
               <table className="w-full text-xs text-left table-fixed min-w-[600px] md:min-w-0">
-                <thead className="bg-gray-100 text-gray-700 uppercase text-[10px] font-semibold sticky top-0 z-10">
+                <thead className="bg-gray-100 text-gray-700 uppercase text-[10px] font-semibold sticky top-0 z-10 shadow-sm">
                   <tr>
                     <th className="px-4 py-3 w-[18%]">Part Number</th>
                     <th className="px-4 py-3 w-[27%]">Description</th>
@@ -287,7 +329,7 @@ export default function HistoryPage() {
         <button
           onClick={handleManualRefresh}
           disabled={isRefreshing}
-          className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold transition-colors disabled:opacity-60 cursor-pointer"
         >
           <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
           {isRefreshing ? "Refreshing..." : "Refresh"}
@@ -311,13 +353,27 @@ export default function HistoryPage() {
                     <CalendarDays size={14} />
                     {new Date(item.createdDate).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
                   </div>
-                  <button onClick={() => setSelectedHistory(item)} className="text-[#1c5ba9] hover:bg-blue-50 p-1.5 rounded transition-colors" title="View Details">
+                  <button onClick={() => setSelectedHistory(item)} className="text-[#1c5ba9] hover:bg-blue-50 p-1.5 rounded transition-colors cursor-pointer" title="View Details">
                     <Eye size={16} />
                   </button>
-                  <button onClick={() => handleDownload(item.jobId)} className="text-[#1c5ba9] hover:bg-blue-50 p-1.5 rounded transition-colors" title="Download Excel">
+                  <button
+                    onClick={() => {
+                      if (item.status === "PENDING") {
+                        toast.info("Forecast is still processing. Please check back shortly.");
+                        return;
+                      }
+                      if (item.status === "FAILED") {
+                        toast.error(`Forecast failed: ${item.errorMessage || "Calculation error"}`);
+                        return;
+                      }
+                      handleDownload(item.jobId);
+                    }}
+                    className={`p-1.5 rounded transition-colors ${item.status === "COMPLETED" ? "text-[#1c5ba9] hover:bg-blue-50 cursor-pointer" : "text-gray-300 hover:text-gray-400 cursor-not-allowed"}`}
+                    title={item.status === "COMPLETED" ? "Download Excel" : `Status: ${item.status}`}
+                  >
                     <Download size={16} />
                   </button>
-                  <button onClick={() => handleDeleteHistory(item.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors" title="Delete History">
+                  <button onClick={() => handleDeleteHistory(item.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors cursor-pointer" title="Delete History">
                     <Trash2 size={16} />
                   </button>
                 </div>
