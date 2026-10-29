@@ -17,6 +17,7 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import api from "@/utils/api";
+import Pagination from "@/components/Pagination";
 
 export default function ClientsPage() {
   const router = useRouter();
@@ -47,6 +48,8 @@ export default function ClientsPage() {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [clientPage, setClientPage] = useState(1);
+  const [clientPageSize, setClientPageSize] = useState(10);
 
   useEffect(() => {
     fetchClients();
@@ -203,7 +206,10 @@ export default function ClientsPage() {
                   type="text"
                   placeholder="Search clients..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setClientPage(1);
+                  }}
                   className="pl-10 pr-4 py-2 border border-blue-100 bg-gray-50 font-semibold rounded focus:ring-1 focus:ring-[#1c5ba9]/30 focus:outline-none transition-all text-sm w-full"
                 />
               </div>
@@ -229,76 +235,98 @@ export default function ClientsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredClients.map((client, index) => (
-                  <tr
-                    key={client.id}
-                    onClick={() => router.push(`/dashboard/clients/${client.id}`)}
-                    className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
-                  >
-                    <td className="px-6 py-5 border-r border-gray-100 text-blue-600 font-bold font-mono">
-                      {index + 1}
-                    </td>
-
-                    <td className="px-6 py-5 border-r border-gray-100 font-bold text-gray-800">
-                      <span>{client.username}</span>
-                    </td>
-
-                    <td className="px-6 py-5 border-r border-gray-100 font-semibold text-gray-600">
-                      {client.forecastDays} Days
-                    </td>
-
-                    <td className="px-6 py-5 border-r border-gray-100 font-semibold text-gray-600">
-                      {client.transitTime} Days
-                    </td>
-
-                    <td className="px-6 py-5 border-r border-gray-100 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleStatus(client);
-                        }}
-                        className={`px-4 py-1 rounded-full text-xs font-bold uppercase transition-colors
-                          ${client.isValid
-                            ? "bg-green-100 text-green-700 hover:bg-green-200"
-                            : "bg-red-100 text-red-700 hover:bg-red-200"
-                          }`}
-                      >
-                        {client.isValid ? "ACTIVE" : "INACTIVE"}
-                      </button>
-                    </td>
-                    <td className="px-6 py-5 text-center">
-                      <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/dashboard/clients/${client.id}`);
-                          }}
-                          className="p-1.5 rounded hover:bg-blue-100 text-[#1c5ba9]"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteClientId(client.id);
-                            setDeleteClientName(client.username);
-                          }}
-                          disabled={deletingId === client.id}
-                          className="p-1.5 rounded hover:bg-red-100 text-red-500 disabled:opacity-50"
-                        >
-                          {deletingId === client.id ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <Trash2 size={16} />
-                          )}
-                        </button>
-                      </div>
+                {filteredClients.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-gray-400 font-medium">
+                      No clients found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredClients
+                    .slice((clientPage - 1) * clientPageSize, clientPage * clientPageSize)
+                    .map((client, index) => {
+                      const srl = (clientPage - 1) * clientPageSize + index + 1;
+                      return (
+                        <tr
+                          key={client.id}
+                          onClick={() => router.push(`/dashboard/clients/${client.id}`)}
+                          className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+                        >
+                          <td className="px-6 py-5 border-r border-gray-100 text-blue-600 font-bold font-mono">
+                            {srl}
+                          </td>
+
+                          <td className="px-6 py-5 border-r border-gray-100 font-bold text-gray-800">
+                            <span>{client.username}</span>
+                          </td>
+
+                          <td className="px-6 py-5 border-r border-gray-100 font-semibold text-gray-600">
+                            {client.forecastDays} Days
+                          </td>
+
+                          <td className="px-6 py-5 border-r border-gray-100 font-semibold text-gray-600">
+                            {client.transitTime} Days
+                          </td>
+
+                          <td className="px-6 py-5 border-r border-gray-100 text-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleStatus(client);
+                              }}
+                              className={`px-4 py-1 rounded-full text-xs font-bold uppercase transition-colors
+                                ${client.isValid
+                                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                  : "bg-red-100 text-red-700 hover:bg-red-200"
+                                }`}
+                            >
+                              {client.isValid ? "ACTIVE" : "INACTIVE"}
+                            </button>
+                          </td>
+                          <td className="px-6 py-5 text-center">
+                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/dashboard/clients/${client.id}`);
+                                }}
+                                className="p-1.5 rounded hover:bg-blue-100 text-[#1c5ba9]"
+                              >
+                                <Pencil size={16} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteClientId(client.id);
+                                  setDeleteClientName(client.username);
+                                }}
+                                disabled={deletingId === client.id}
+                                className="p-1.5 rounded hover:bg-red-100 text-red-500 disabled:opacity-50"
+                              >
+                                {deletingId === client.id ? (
+                                  <Loader2 size={16} className="animate-spin" />
+                                ) : (
+                                  <Trash2 size={16} />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                )}
               </tbody>
             </table>
           </div>
+
+          <Pagination
+            currentPage={clientPage}
+            totalItems={filteredClients.length}
+            pageSize={clientPageSize}
+            onPageChange={setClientPage}
+            pageSizeOptions={[5, 10, 20, 50]}
+            onPageSizeChange={(sz) => { setClientPageSize(sz); setClientPage(1); }}
+          />
         </div>
       </div>
 

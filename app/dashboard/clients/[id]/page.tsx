@@ -63,8 +63,9 @@ export default function ClientDashboard() {
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3000);
 
-    } catch (error) {
-      toast.error("Failed to update client");
+    } catch (error: unknown) {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || "Failed to update client");
     }
   };
 
@@ -96,9 +97,6 @@ export default function ClientDashboard() {
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex flex-col gap-4">
           <div className="bg-blue-50/50 text-[#1c5ba9] px-4 py-3 rounded border-l-4 border-blue-500 font-bold text-sm flex items-center gap-3">
             <Info size={18} className="text-[#1c5ba9] shrink-0" />
-            <span>
-              Master Configuration: Modify global forecasting parameters for {clientName}.
-            </span>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mt-2">

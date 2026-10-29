@@ -317,11 +317,27 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
         }
       );
 
-      toast.info("Forecast started! You can check progress on the results page manually.", {
-        position: "top-right",
-        autoClose: 5000,
-        toastId: `forecast-started-${activeJobId}`,
-      });
+      toast.info(
+        <div className="flex flex-col gap-2">
+          <span className="font-medium text-xs text-gray-800">
+            Forecast calculation started! You can track live progress in History.
+          </span>
+          <button
+            onClick={() => {
+              toast.dismiss(`forecast-started-${activeJobId}`);
+              router.push("/dashboard/history");
+            }}
+            className="self-start px-2.5 py-1 bg-[#1c5ba9] hover:bg-[#154682] text-white text-[11px] font-bold rounded shadow-sm transition-colors cursor-pointer"
+          >
+            Go to History Page &rarr;
+          </button>
+        </div>,
+        {
+          position: "top-right",
+          autoClose: 8000,
+          toastId: `forecast-started-${activeJobId}`,
+        }
+      );
 
     } catch (error: any) {
       console.error("Forecast failed details:", error);
@@ -378,11 +394,22 @@ export default function DashboardClient({ role }: { role: "ADMIN" | "USER" }) {
 
       toast.success("Downloaded successfully");
 
-    } catch (err) {
+    } catch (err: unknown) {
 
       console.error(err);
 
-      toast.error("Download failed");
+      let errorMsg = "Download failed. File may not be available.";
+      const errorObj = err as { response?: { data?: unknown } };
+      if (errorObj?.response?.data instanceof Blob) {
+        try {
+          const text = await errorObj.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed.message) errorMsg = parsed.message;
+        } catch (_) {}
+      } else if (typeof errorObj?.response?.data === "object" && errorObj.response?.data !== null && "message" in errorObj.response.data) {
+        errorMsg = String((errorObj.response.data as { message: unknown }).message);
+      }
+      toast.error(errorMsg);
 
     } finally {
 
